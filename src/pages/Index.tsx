@@ -203,7 +203,7 @@ const Index = () => {
           <p className="text-lg leading-relaxed text-foreground/80">
             {t(
               'AGENCIAS está en proceso. La siguiente fase ocurre en Europa — laboratorios, residencias, pruebas escénicas. Los elementos aún abiertos son exactamente los espacios de cocreación: el catálogo de comandos, la forma escénica final, la estructura dramatúrgica. Si algo de esto resuena, hablemos.',
-              'AGENCIAS is in process. The next phase happens in Europe — labs, residencies, stage tests. The still-open elements are precisely the spaces for co-creation: the command catalogue, the final scenic form, the dramaturgical structure. If any of this resonates, let's talk.'
+              "AGENCIAS is in process. The next phase happens in Europe — labs, residencies, stage tests. The still-open elements are precisely the spaces for co-creation: the command catalogue, the final scenic form, the dramaturgical structure. If any of this resonates, let's talk."
             )}
           </p>
         </div>
