@@ -9,8 +9,10 @@ const fadeIn = {
   transition: { duration: 0.6 },
 };
 
-const SectionLabel = ({ children }: { children: string }) => (
-  <p className="font-mono text-xs tracking-[0.3em] text-primary uppercase mb-8">{children}</p>
+const SectionLabel = ({ children, large = false }: { children: string; large?: boolean }) => (
+  <p className={`font-mono tracking-[0.3em] text-primary uppercase mb-5 ${large ? 'text-sm' : 'text-xs'}`}>
+    <span className="text-primary mr-2">•</span>{children}
+  </p>
 );
 
 const Index = () => {
@@ -43,7 +45,7 @@ const Index = () => {
       <LanguageToggle />
 
       {/* HERO */}
-      <section className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
+      <section className="min-h-[85vh] flex flex-col items-center justify-center px-6 text-center">
         <motion.h1
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -64,19 +66,13 @@ const Index = () => {
           initial={{ scaleX: 0 }}
           animate={{ scaleX: 1 }}
           transition={{ duration: 0.8, delay: 0.9 }}
-          className="mt-8 w-32 h-px bg-primary origin-center"
-        />
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 64, opacity: 1 }}
-          transition={{ duration: 1.2, delay: 1.4, ease: "easeOut" }}
-          className="mt-12 w-px bg-gradient-to-b from-primary to-transparent"
+          className="mt-6 w-24 h-px bg-primary origin-center"
         />
       </section>
 
       {/* CENTRAL QUESTION */}
-      <motion.section {...fadeIn} className="py-24 md:py-32 px-6">
-        <div className="max-w-3xl mx-auto text-center space-y-6">
+      <motion.section {...fadeIn} className="py-14 md:py-20 px-6">
+        <div className="max-w-3xl mx-auto border-l-2 border-primary/30 pl-6 space-y-3">
           <p className="text-xl md:text-2xl italic text-foreground/90 leading-relaxed">
             {t(
               '¿Cómo se manifiesta la agencia del cuerpo cuando es guiado, condicionado o controlado por sistemas externos?',
@@ -93,7 +89,7 @@ const Index = () => {
       </motion.section>
 
       {/* ABOUT */}
-      <motion.section {...fadeIn} className="py-24 px-6">
+      <motion.section {...fadeIn} className="py-14 px-6">
         <div className="max-w-3xl mx-auto">
           <SectionLabel>{t('SOBRE EL PROYECTO', 'ABOUT THE PROJECT')}</SectionLabel>
           <p className="text-base md:text-lg leading-relaxed text-foreground/80">
@@ -106,7 +102,7 @@ const Index = () => {
       </motion.section>
 
       {/* THREE ROLES */}
-      <motion.section {...fadeIn} className="py-24 px-6">
+      <motion.section {...fadeIn} className="py-14 px-6">
         <div className="max-w-4xl mx-auto">
           <SectionLabel>{t('TRES ROLES', 'THREE ROLES')}</SectionLabel>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -118,7 +114,7 @@ const Index = () => {
               </div>
             ))}
           </div>
-          <p className="mt-8 text-sm text-muted-foreground text-center">
+          <p className="mt-6 text-sm text-muted-foreground text-center">
             {t(
               'El control no es fijo — puede rotar, compartirse o cruzarse.',
               'Control is not fixed — it can rotate, be shared, or cross between participants.'
@@ -128,7 +124,7 @@ const Index = () => {
       </motion.section>
 
       {/* MOVEMENT & AESTHETICS */}
-      <motion.section {...fadeIn} className="py-24 px-6">
+      <motion.section {...fadeIn} className="py-14 px-6">
         <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12">
           <div>
             <SectionLabel>{t('LENGUAJE CORPORAL', 'MOVEMENT LANGUAGE')}</SectionLabel>
@@ -152,10 +148,10 @@ const Index = () => {
       </motion.section>
 
       {/* VIDEO GAME LOGIC */}
-      <motion.section {...fadeIn} className="py-24 px-6">
+      <motion.section {...fadeIn} className="py-14 px-6">
         <div className="max-w-4xl mx-auto">
           <SectionLabel>{t('LÓGICA DE VIDEOJUEGOS', 'VIDEO GAME LOGIC')}</SectionLabel>
-          <div className="flex flex-wrap gap-3 mb-8">
+          <div className="flex flex-wrap gap-3 mb-6">
             {mappings.map(([from, to]) => (
               <span
                 key={from}
@@ -175,10 +171,10 @@ const Index = () => {
       </motion.section>
 
       {/* DEVELOPMENT PLAN */}
-      <motion.section {...fadeIn} className="py-24 px-6">
+      <motion.section {...fadeIn} className="py-14 px-6">
         <div className="max-w-3xl mx-auto">
           <SectionLabel>{t('PLAN DE DESARROLLO', 'DEVELOPMENT PLAN')}</SectionLabel>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {stages.map((s, i) => (
               <div key={i} className="flex items-start gap-4">
                 <span className={`font-mono text-xs mt-1 w-6 text-right ${
@@ -201,10 +197,10 @@ const Index = () => {
       </motion.section>
 
       {/* COLLABORATION */}
-      <motion.section {...fadeIn} className="py-24 px-6">
-        <div className="max-w-3xl mx-auto">
-          <SectionLabel>{t('ABIERTO A COLABORACIÓN', 'OPEN FOR COLLABORATION')}</SectionLabel>
-          <p className="text-base md:text-lg leading-relaxed text-foreground/80">
+      <motion.section {...fadeIn} className="py-14 px-6">
+        <div className="max-w-3xl mx-auto border-l-4 border-primary pl-6 bg-[hsl(220_40%_10%)] rounded-r-lg py-8 pr-6">
+          <SectionLabel large>{t('ABIERTO A COLABORACIÓN', 'OPEN FOR COLLABORATION')}</SectionLabel>
+          <p className="text-lg leading-relaxed text-foreground/80">
             {t(
               'El proyecto busca colaboradores para desarrollar laboratorios, residencias y presentaciones escénicas en Europa. Los espacios abiertos son precisamente los de cocreación: catálogo de comandos, forma escénica final, estructura dramatúrgica.',
               'The project is seeking collaborators for labs, residencies, and stage presentations in Europe. The open elements are precisely the spaces for co-creation: command catalogue, final scenic form, dramaturgical structure.'
@@ -214,11 +210,19 @@ const Index = () => {
       </motion.section>
 
       {/* CONTACT */}
-      <footer className="border-t border-primary/30 py-12 px-6">
-        <div className="max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <span>Racso Sami Cabrera Hernandez</span>
-          <span className="font-mono text-primary">racsodia626@gmail.com</span>
-          <span>Mexico / Europe</span>
+      <footer className="border-t border-primary/30 py-10 px-6">
+        <div className="max-w-3xl mx-auto">
+          <p className="text-sm italic text-primary text-center mb-6">
+            {t(
+              'Si este proyecto resuena contigo, escríbenos.',
+              'If this project resonates with you, reach out.'
+            )}
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+            <span>Racso Sami Cabrera Hernandez</span>
+            <span className="font-mono text-primary">racsodia626@gmail.com</span>
+            <span>Mexico / Europe</span>
+          </div>
         </div>
       </footer>
     </div>
