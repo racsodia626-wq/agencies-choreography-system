@@ -4,51 +4,52 @@
 
 @layer base {
   :root {
-    --background: 60 10% 97%;
-    --foreground: 0 0% 8%;
+    --background: 0 0% 3%;
+    --foreground: 0 0% 92%;
 
-    --card: 60 10% 97%;
-    --card-foreground: 0 0% 8%;
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 92%;
 
-    --popover: 60 10% 97%;
-    --popover-foreground: 0 0% 8%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 0 0% 92%;
 
-    --primary: 0 0% 8%;
-    --primary-foreground: 60 10% 97%;
+    --primary: 160 100% 50%;
+    --primary-foreground: 0 0% 3%;
 
-    --secondary: 0 0% 92%;
-    --secondary-foreground: 0 0% 8%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 92%;
 
-    --muted: 0 0% 94%;
-    --muted-foreground: 0 0% 42%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 55%;
 
-    --accent: 0 0% 92%;
-    --accent-foreground: 0 0% 8%;
+    --accent: 160 60% 20%;
+    --accent-foreground: 160 100% 50%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 0 0% 85%;
-    --input: 0 0% 85%;
-    --ring: 0 0% 8%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 160 100% 50%;
 
     --radius: 0rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 0 0% 5%;
+    --sidebar-foreground: 0 0% 92%;
+    --sidebar-primary: 160 100% 50%;
+    --sidebar-primary-foreground: 0 0% 3%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 92%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: 160 100% 50%;
 
     /* Custom tokens */
-    --font-display: 'Instrument Serif', serif;
+    --font-display: 'Space Grotesk', sans-serif;
     --font-body: 'Space Grotesk', sans-serif;
     --font-mono: 'Space Mono', monospace;
 
-    --grid-line: 0 0% 90%;
+    --grid-line: 0 0% 15%;
+    --glow: 160 100% 50%;
   }
 }
 
@@ -69,7 +70,7 @@
   }
 
   ::selection {
-    background: hsl(var(--foreground));
+    background: hsl(var(--primary));
     color: hsl(var(--background));
   }
 }
@@ -86,6 +87,181 @@
   }
 }
 
+/* Animated grid background */
+@keyframes grid-pulse {
+  0%, 100% {
+    opacity: 0.03;
+  }
+  50% {
+    opacity: 0.08;
+  }
+}
+
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    text-shadow: 0 0 5px hsl(var(--primary) / 0.5), 0 0 10px hsl(var(--primary) / 0.3);
+  }
+  50% {
+    text-shadow: 0 0 20px hsl(var(--primary) / 0.8), 0 0 40px hsl(var(--primary) / 0.5);
+  }
+}
+
+@keyframes node-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 1;
+  }
+}
+
+@keyframes line-draw {
+  0% {
+    stroke-dashoffset: 1000;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-grid-pulse {
+  animation: grid-pulse 4s ease-in-out infinite;
+}
+
+.animate-scanline {
+  animation: scanline 8s linear infinite;
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.animate-node-pulse {
+  animation: node-pulse 2s ease-in-out infinite;
+}
+
+.animate-line-draw {
+  stroke-dasharray: 1000;
+  animation: line-draw 3s ease-out forwards;
+}
+
+/* Scanline effect overlay */
+.scanline-overlay::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    hsl(var(--primary) / 0.1),
+    transparent
+  );
+  animation: scanline 6s linear infinite;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* Cursor glow effect */
+.cursor-glow {
+  cursor: none;
+}
+
+/* Interface button hover */
+.interface-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.interface-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--primary) / 0.2),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.interface-btn:hover::before {
+  left: 100%;
+}
+
+/* Text glitch effect */
+@keyframes glitch {
+  0% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-2px, 2px);
+  }
+  40% {
+    transform: translate(-2px, -2px);
+  }
+  60% {
+    transform: translate(2px, 2px);
+  }
+  80% {
+    transform: translate(2px, -2px);
+  }
+  100% {
+    transform: translate(0);
+  }
+}
+
+.glitch:hover {
+  animation: glitch 0.3s ease infinite;
+}
+
 html {
   scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.5);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary));
 }
