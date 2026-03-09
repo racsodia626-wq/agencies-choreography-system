@@ -210,9 +210,9 @@ const Index = () => {
       {/* CONTACT */}
       <footer className="border-t border-primary/30 py-12 px-6">
         <div className="max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <span>Rakso Sami Cabrera</span>
-          <span className="font-mono text-primary">contact@raksosami.com</span>
-          <span>{t('Berlín / Europa', 'Berlin / Europe')}</span>
+          <span>Racso Sami Cabrera Hernandez</span>
+          <span className="font-mono text-primary">racsodia626@gmail.com</span>
+          <span>Mexico / Europe</span>
         </div>
       </footer>
     </div>
