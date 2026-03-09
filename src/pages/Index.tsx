@@ -202,8 +202,8 @@ const Index = () => {
           <SectionLabel large>{t('ABIERTO A COLABORACIÓN', 'OPEN FOR COLLABORATION')}</SectionLabel>
           <p className="text-lg leading-relaxed text-foreground/80">
             {t(
-              'El proyecto busca colaboradores para desarrollar laboratorios, residencias y presentaciones escénicas en Europa. Los espacios abiertos son precisamente los de cocreación: catálogo de comandos, forma escénica final, estructura dramatúrgica.',
-              'The project is seeking collaborators for labs, residencies, and stage presentations in Europe. The open elements are precisely the spaces for co-creation: command catalogue, final scenic form, dramaturgical structure.'
+              'AGENCIAS está en proceso. La siguiente fase ocurre en Europa — laboratorios, residencias, pruebas escénicas. Los elementos aún abiertos son exactamente los espacios de cocreación: el catálogo de comandos, la forma escénica final, la estructura dramatúrgica. Si algo de esto resuena, hablemos.',
+              'AGENCIAS is in process. The next phase happens in Europe — labs, residencies, stage tests. The still-open elements are precisely the spaces for co-creation: the command catalogue, the final scenic form, the dramaturgical structure. If any of this resonates, let's talk.'
             )}
           </p>
         </div>
