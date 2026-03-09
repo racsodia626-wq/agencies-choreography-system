@@ -66,6 +66,12 @@ const Index = () => {
           transition={{ duration: 0.8, delay: 0.9 }}
           className="mt-8 w-32 h-px bg-primary origin-center"
         />
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 64, opacity: 1 }}
+          transition={{ duration: 1.2, delay: 1.4, ease: "easeOut" }}
+          className="mt-12 w-px bg-gradient-to-b from-primary to-transparent"
+        />
       </section>
 
       {/* CENTRAL QUESTION */}
