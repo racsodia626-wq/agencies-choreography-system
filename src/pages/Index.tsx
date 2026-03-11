@@ -62,6 +62,13 @@ const Index = () => {
         >
           {t('Sistema coreográfico experimental', 'Experimental choreographic system')}
         </motion.p>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.7 }}
+          className="mt-3 font-mono text-xs text-muted-foreground/60 tracking-wider"
+        >
+          {t('por Racso Sami Cabrera', 'by Racso Sami Cabrera')}
         <motion.div
           initial={{ scaleX: 0 }}
           animate={{ scaleX: 1 }}
