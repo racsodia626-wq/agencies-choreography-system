@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/hooks/useLanguage';
 import LanguageToggle from '@/components/LanguageToggle';
-import artistPhoto from '@/assets/artist-photo.jpg';
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
@@ -62,6 +61,14 @@ const Index = () => {
           className="mt-6 font-mono text-sm md:text-base text-primary tracking-wider"
         >
           {t('Sistema coreográfico experimental', 'Experimental choreographic system')}
+        </motion.p>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.7 }}
+          className="mt-3 font-mono text-xs text-muted-foreground/60 tracking-wider"
+        >
+          {t('por Racso Sami Cabrera', 'by Racso Sami Cabrera')}
         </motion.p>
         <motion.div
           initial={{ scaleX: 0 }}
@@ -214,23 +221,29 @@ const Index = () => {
       <motion.section {...fadeIn} className="py-14 px-6">
         <div className="max-w-3xl mx-auto">
           <SectionLabel>{t('SOBRE EL ARTISTA', 'ABOUT THE ARTIST')}</SectionLabel>
-          <div className="relative w-full max-h-[500px] overflow-hidden mb-2">
-            <img
-              src={artistPhoto}
-              alt={t('Racso Sami Cabrera en escena', 'Racso Sami Cabrera performing')}
-              className="w-full max-h-[500px] object-cover"
-            />
-            <div className="absolute inset-0 bg-background/30" />
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
+            <div className="md:col-span-3">
+              <p className="text-base md:text-lg leading-relaxed text-foreground/80">
+                {t(
+                  'Racso Sami Cabrera es bailarín, intérprete y creador escénico mexicano con formación en danza contemporánea, teatro físico y butoh. Estudió en la Escuela Profesional de Danza Contemporánea de Mazatlán y en SEAD — Salzburg Experimental Academy of Dance, Austria, donde obtuvo su licenciatura en 2024. Ha colaborado con Teatro Cuerpo Social, compañía de danza-teatro y butoh en México, y desarrollado obra propia como intérprete-creador. Su pieza unipersonal Sabor Fresa ha sido su trabajo de mayor circulación. Se ha presentado en más de 20 festivales internacionales en México, Ecuador, Costa Rica, Austria, Francia, Bélgica y Reino Unido. AGENCIAS es su proyecto actual.',
+                  "Racso Sami Cabrera is a Mexican dancer, performer and stage creator with training in contemporary dance, physical theatre and butoh. He studied at the Escuela Profesional de Danza Contemporánea in Mazatlán and at SEAD — Salzburg Experimental Academy of Dance, Austria, where he completed his bachelor's degree in 2024. He has collaborated with Teatro Cuerpo Social, a dance-theatre and butoh company in Mexico, and developed his own work as a performer-creator. His solo piece Sabor Fresa has been his most widely performed work. He has presented at more than 20 international festivals across Mexico, Ecuador, Costa Rica, Austria, France, Belgium and the United Kingdom. AGENCIAS is his current project."
+                )}
+              </p>
+            </div>
+            <div className="md:col-span-2">
+              <div className="relative max-h-[350px] overflow-hidden">
+                <img
+                  src="/artist-photo.jpg"
+                  alt={t('Racso Sami Cabrera en escena', 'Racso Sami Cabrera performing')}
+                  className="w-full max-h-[350px] object-cover"
+                />
+                <div className="absolute inset-0 bg-background/30" />
+              </div>
+              <p className="text-[11px] text-muted-foreground/60 mt-2">
+                Photo: @arnauudbeelenphoto — TicTac Art Center, Brussels, Belgium
+              </p>
+            </div>
           </div>
-          <p className="text-[11px] text-muted-foreground/60 mb-6">
-            Photo: @arnauudbeelenphoto — TicTac Art Center, Brussels, Belgium
-          </p>
-          <p className="text-base md:text-lg leading-relaxed text-foreground/80">
-            {t(
-              'Racso Sami Cabrera es bailarín, intérprete y creador escénico mexicano con formación en danza contemporánea, teatro físico y butoh. Estudió en la Escuela Profesional de Danza Contemporánea de Mazatlán y en SEAD — Salzburg Experimental Academy of Dance, Austria, donde obtuvo su licenciatura en 2024. Ha colaborado con Teatro Cuerpo Social, compañía de danza-teatro y butoh en México, y desarrollado obra propia como intérprete-creador. Su pieza unipersonal Sabor Fresa ha sido su trabajo de mayor circulación. Se ha presentado en más de 20 festivales internacionales en México, Ecuador, Costa Rica, Austria, Francia, Bélgica y Reino Unido. AGENCIAS es su proyecto actual.',
-              "Racso Sami Cabrera is a Mexican dancer, performer and stage creator with training in contemporary dance, physical theatre and butoh. He studied at the Escuela Profesional de Danza Contemporánea in Mazatlán and at SEAD — Salzburg Experimental Academy of Dance, Austria, where he completed his bachelor's degree in 2024. He has collaborated with Teatro Cuerpo Social, a dance-theatre and butoh company in Mexico, and developed his own work as a performer-creator. His solo piece Sabor Fresa has been his most widely performed work. He has presented at more than 20 international festivals across Mexico, Ecuador, Costa Rica, Austria, France, Belgium and the United Kingdom. AGENCIAS is his current project."
-            )}
-          </p>
         </div>
       </motion.section>
 
