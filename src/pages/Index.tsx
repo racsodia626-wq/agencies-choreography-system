@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/hooks/useLanguage';
 import LanguageToggle from '@/components/LanguageToggle';
+import artistPhoto from '@/assets/artist-photo.jpg';
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
@@ -215,7 +216,7 @@ const Index = () => {
           <SectionLabel>{t('SOBRE EL ARTISTA', 'ABOUT THE ARTIST')}</SectionLabel>
           <div className="relative w-full max-h-[500px] overflow-hidden mb-2">
             <img
-              src="/artist-photo.png"
+              src={artistPhoto}
               alt={t('Racso Sami Cabrera en escena', 'Racso Sami Cabrera performing')}
               className="w-full max-h-[500px] object-cover"
             />
