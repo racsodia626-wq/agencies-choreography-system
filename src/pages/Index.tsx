@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/hooks/useLanguage';
 import LanguageToggle from '@/components/LanguageToggle';
+import artistPhoto from '@/assets/artist-photo.jpg';
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
