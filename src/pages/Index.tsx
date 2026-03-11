@@ -69,6 +69,7 @@ const Index = () => {
           className="mt-3 font-mono text-xs text-muted-foreground/60 tracking-wider"
         >
           {t('por Racso Sami Cabrera', 'by Racso Sami Cabrera')}
+        </motion.p>
         <motion.div
           initial={{ scaleX: 0 }}
           animate={{ scaleX: 1 }}
