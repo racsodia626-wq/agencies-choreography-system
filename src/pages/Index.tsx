@@ -68,7 +68,7 @@ const Index = () => {
           transition={{ duration: 0.8, delay: 0.7 }}
           className="mt-3 font-mono text-xs text-muted-foreground/60 tracking-wider"
         >
-          {t('por Racso Sami Cabrera', 'by Racso Sami Cabrera')}
+          {t('por Racso Sami Cabrera Hernandez', 'by Racso Sami Cabrera Hernandez')}
         </motion.p>
         <motion.div
           initial={{ scaleX: 0 }}
