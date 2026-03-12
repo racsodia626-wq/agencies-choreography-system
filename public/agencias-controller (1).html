@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AGENCIAS — Sistema de Control</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --cyan: #00D4FF;
+    --cyan-dim: rgba(0, 212, 255, 0.15);
+    --cyan-glow: rgba(0, 212, 255, 0.4);
+    --dark: #050810;
+    --danger: #FF3366;
+    --success: #00FF88;
+  }
+
+  body {
+    background: var(--dark);
+    color: white;
+    font-family: 'Share Tech Mono', monospace;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  #camera-feed {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+  #camera-feed.active { opacity: 1; }
+
+  .scanlines {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .vignette {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(5,8,16,0.85) 100%);
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  /* START */
+  #start-screen {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 100; background: var(--dark);
+    transition: opacity 0.5s ease;
+  }
+  #start-screen.hidden { opacity: 0; pointer-events: none; }
+
+  .start-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(3rem, 12vw, 7rem);
+    font-weight: 700; letter-spacing: 0.15em;
+    color: white; text-shadow: 0 0 40px var(--cyan-glow);
+  }
+  .start-subtitle {
+    font-size: 0.75rem; letter-spacing: 0.3em;
+    color: var(--cyan); margin-top: 0.5rem; margin-bottom: 3rem; opacity: 0.8;
+  }
+  .start-btn {
+    background: transparent; border: 1px solid var(--cyan);
+    color: var(--cyan); font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem; letter-spacing: 0.2em;
+    padding: 1rem 2.5rem; cursor: pointer;
+    position: relative; overflow: hidden; transition: all 0.3s ease;
+  }
+  .start-btn:hover { box-shadow: 0 0 20px var(--cyan-glow); color: white; }
+
+  /* LOADING */
+  #loading-screen {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 99; background: var(--dark);
+    opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+  }
+  #loading-screen.visible { opacity: 1; pointer-events: all; }
+  .loading-text {
+    font-size: 0.65rem; letter-spacing: 0.3em;
+    color: var(--cyan); margin-top: 1rem;
+    animation: blink 1s infinite;
+  }
+  .loading-bar {
+    width: 200px; height: 2px;
+    background: rgba(0,212,255,0.2); margin-top: 0.8rem;
+    position: relative; overflow: hidden;
+  }
+  .loading-bar::after {
+    content: ''; position: absolute; top: 0; left: -100%;
+    width: 100%; height: 100%; background: var(--cyan);
+    animation: sweep 1.5s infinite ease-in-out;
+  }
+  @keyframes sweep { 0% { left: -100%; } 100% { left: 100%; } }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* HUD */
+  #hud-top {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    padding: 1rem 1.2rem; display: flex;
+    justify-content: space-between; align-items: center;
+    background: linear-gradient(to bottom, rgba(5,8,16,0.9), transparent);
+  }
+  .hud-title {
+    font-family: 'Rajdhani', sans-serif; font-size: 1.1rem;
+    font-weight: 700; letter-spacing: 0.2em; color: var(--cyan);
+  }
+  .hud-status {
+    font-size: 0.65rem; letter-spacing: 0.15em;
+    color: var(--cyan); opacity: 0.7;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--success); box-shadow: 0 0 6px var(--success);
+    animation: pulse-dot 2s infinite;
+  }
+  .status-dot.waiting { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* DETECTION CANVAS */
+  #detection-canvas {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 4; pointer-events: none;
+    transform: scaleX(-1);
+  }
+
+  /* WAITING MESSAGE */
+  #detection-status {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9; text-align: center;
+    pointer-events: none; transition: opacity 0.5s ease;
+  }
+  #detection-status.hidden { opacity: 0; }
+  .detection-icon { font-size: 2rem; margin-bottom: 0.8rem; opacity: 0.4; }
+  .detection-text { font-size: 0.65rem; letter-spacing: 0.25em; color: var(--cyan); opacity: 0.5; }
+
+  /* COMMAND FLASH */
+  #last-command {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 8;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(3rem, 15vw, 8rem);
+    font-weight: 700; letter-spacing: 0.1em;
+    color: white;
+    text-shadow: 0 0 30px var(--cyan), 0 0 60px var(--cyan-glow);
+    opacity: 0; pointer-events: none; text-align: center;
+  }
+  #last-command.flash { animation: cmd-flash 1.2s ease forwards; }
+  @keyframes cmd-flash {
+    0% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    30% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    70% { opacity: 0.8; }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+  }
+
+  /* CONTROLS */
+  #controls {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    z-index: 10; padding: 1.5rem 1rem 2rem;
+    background: linear-gradient(to top, rgba(5,8,16,0.95), transparent);
+    display: flex; flex-direction: column; gap: 0.8rem;
+    opacity: 0; pointer-events: none; transition: opacity 0.5s ease;
+  }
+  #controls.visible { opacity: 1; pointer-events: all; }
+
+  .cmd-row { display: flex; gap: 0.8rem; justify-content: center; }
+
+  .cmd-btn {
+    flex: 1; max-width: 160px; padding: 1rem 0.5rem;
+    background: rgba(5, 8, 16, 0.7);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    color: white; font-family: 'Rajdhani', sans-serif;
+    font-size: 1.1rem; font-weight: 600; letter-spacing: 0.15em;
+    cursor: pointer; position: relative; overflow: hidden;
+    transition: all 0.15s ease; backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px); text-transform: uppercase;
+    display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
+  }
+  .cmd-btn .cmd-key {
+    font-family: 'Share Tech Mono', monospace; font-size: 0.6rem;
+    color: var(--cyan); opacity: 0.6; letter-spacing: 0.1em;
+  }
+  .cmd-btn::before {
+    content: ''; position: absolute; bottom: 0; left: 0;
+    width: 100%; height: 2px; background: var(--cyan);
+    transform: scaleX(0); transition: transform 0.15s ease;
+  }
+  .cmd-btn::after {
+    content: ''; position: absolute; top: 4px; right: 4px;
+    width: 8px; height: 8px;
+    border-top: 1px solid var(--cyan); border-right: 1px solid var(--cyan); opacity: 0.4;
+  }
+  .cmd-btn:active, .cmd-btn.firing {
+    background: var(--cyan-dim); border-color: var(--cyan);
+    box-shadow: 0 0 20px var(--cyan-glow), inset 0 0 15px var(--cyan-dim);
+    transform: scale(0.97);
+  }
+  .cmd-btn.firing::before { transform: scaleX(1); }
+  .cmd-btn.blank { border-color: rgba(255,51,102,0.3); color: rgba(255,255,255,0.5); }
+  .cmd-btn.blank:active, .cmd-btn.blank.firing {
+    background: rgba(255,51,102,0.1); border-color: var(--danger);
+    box-shadow: 0 0 20px rgba(255,51,102,0.3);
+  }
+
+  #ticker {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 2px; background: var(--cyan);
+    transform: scaleX(0); transform-origin: left; z-index: 20;
+  }
+  #ticker.run { animation: ticker-run 0.8s ease forwards; }
+  @keyframes ticker-run {
+    0% { transform: scaleX(0); opacity: 1; }
+    70% { transform: scaleX(1); opacity: 1; }
+    100% { transform: scaleX(1); opacity: 0; }
+  }
+
+  .corner { position: fixed; width: 20px; height: 20px; z-index: 9; opacity: 0.4; }
+  .corner.tl { top: 60px; left: 12px; border-top: 1px solid var(--cyan); border-left: 1px solid var(--cyan); }
+  .corner.tr { top: 60px; right: 12px; border-top: 1px solid var(--cyan); border-right: 1px solid var(--cyan); }
+</style>
+</head>
+<body>
+
+<video id="camera-feed" autoplay playsinline muted></video>
+<canvas id="detection-canvas"></canvas>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+<div class="corner tl"></div>
+<div class="corner tr"></div>
+
+<div id="start-screen">
+  <div class="start-title">AGENCIAS</div>
+  <div class="start-subtitle">SISTEMA DE CONTROL — v0.3</div>
+  <button class="start-btn" onclick="initSystem()">▶ INICIAR SISTEMA</button>
+</div>
+
+<div id="loading-screen">
+  <div class="start-title" style="font-size:2rem; letter-spacing:0.15em;">AGENCIAS</div>
+  <div class="loading-text">CARGANDO SISTEMA DE DETECCIÓN</div>
+  <div class="loading-bar"></div>
+</div>
+
+<div id="hud-top">
+  <div class="hud-title">AGENCIAS</div>
+  <div class="hud-status">
+    <div class="status-dot waiting" id="status-dot"></div>
+    <span id="status-text">BUSCANDO PERFORMER</span>
+  </div>
+</div>
+
+<div id="detection-status">
+  <div class="detection-icon">⊙</div>
+  <div class="detection-text">APUNTA LA CÁMARA AL PERFORMER</div>
+</div>
+
+<div id="last-command"></div>
+
+<div id="controls">
+  <div class="cmd-row">
+    <button class="cmd-btn" onclick="fireCommand(this, 'CAMINA')">
+      CAMINA <span class="cmd-key">[ CMD 01 ]</span>
+    </button>
+    <button class="cmd-btn" onclick="fireCommand(this, 'SALTA')">
+      SALTA <span class="cmd-key">[ CMD 02 ]</span>
+    </button>
+    <button class="cmd-btn" onclick="fireCommand(this, 'AGÁCHATE')">
+      AGÁCHATE <span class="cmd-key">[ CMD 03 ]</span>
+    </button>
+  </div>
+  <div class="cmd-row">
+    <button class="cmd-btn blank" onclick="fireCommand(this, '', true)">
+      — SILENCIO — <span class="cmd-key">[ SIN COMANDO ]</span>
+    </button>
+  </div>
+</div>
+
+<div id="ticker"></div>
+
+<script>
+  const synth = window.speechSynthesis;
+  let voices = [];
+  let model = null;
+  let personVisible = false;
+  let missedFrames = 0;
+  const MISS_THRESHOLD = 20;
+
+  function loadVoices() { voices = synth.getVoices(); }
+  loadVoices();
+  if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = loadVoices;
+  }
+
+  async function initSystem() {
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('loading-screen').classList.add('visible');
+
+    try {
+      model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+
+      const video = document.getElementById('camera-feed');
+      video.srcObject = stream;
+      video.classList.add('active');
+
+      video.onloadedmetadata = () => {
+        const canvas = document.getElementById('detection-canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        document.getElementById('loading-screen').classList.remove('visible');
+        detectLoop(video, canvas);
+      };
+
+    } catch(e) {
+      document.getElementById('loading-screen').classList.remove('visible');
+      document.getElementById('status-text').textContent = 'SIN CÁMARA — MODO MANUAL';
+      showControls();
+    }
+  }
+
+  async function detectLoop(video, canvas) {
+    try {
+      const predictions = await model.detect(video);
+      const persons = predictions.filter(p => p.class === 'person' && p.score > 0.5);
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (persons.length > 0) {
+        missedFrames = 0;
+
+        persons.forEach(p => {
+          const [x, y, w, h] = p.bbox;
+          const cs = 14;
+
+          // Dashed bounding box
+          ctx.strokeStyle = 'rgba(0, 212, 255, 0.25)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([6, 4]);
+          ctx.strokeRect(x, y, w, h);
+
+          // Corner brackets
+          ctx.strokeStyle = 'rgba(0, 212, 255, 0.9)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([]);
+          [[x,y,1,1],[x+w,y,-1,1],[x,y+h,1,-1],[x+w,y+h,-1,-1]].forEach(([px,py,dx,dy]) => {
+            ctx.beginPath();
+            ctx.moveTo(px, py + dy*cs);
+            ctx.lineTo(px, py);
+            ctx.lineTo(px + dx*cs, py);
+            ctx.stroke();
+          });
+        });
+
+        if (!personVisible) { personVisible = true; showControls(); }
+
+      } else {
+        missedFrames++;
+        if (missedFrames > MISS_THRESHOLD && personVisible) {
+          personVisible = false;
+          hideControls();
+        }
+      }
+    } catch(e) {}
+
+    requestAnimationFrame(() => detectLoop(video, canvas));
+  }
+
+  function showControls() {
+    document.getElementById('controls').classList.add('visible');
+    document.getElementById('detection-status').classList.add('hidden');
+    document.getElementById('status-dot').classList.remove('waiting');
+    document.getElementById('status-text').textContent = 'PERFORMER DETECTADO';
+  }
+
+  function hideControls() {
+    document.getElementById('controls').classList.remove('visible');
+    document.getElementById('detection-status').classList.remove('hidden');
+    document.getElementById('status-dot').classList.add('waiting');
+    document.getElementById('status-text').textContent = 'BUSCANDO PERFORMER';
+  }
+
+  function fireCommand(btn, text, isSilence = false) {
+    btn.classList.add('firing');
+    setTimeout(() => btn.classList.remove('firing'), 300);
+
+    const ticker = document.getElementById('ticker');
+    ticker.classList.remove('run');
+    void ticker.offsetWidth;
+    ticker.classList.add('run');
+
+    if (isSilence) { showFlash('—'); return; }
+    showFlash(text);
+    speakCommand(text);
+  }
+
+  function showFlash(text) {
+    const el = document.getElementById('last-command');
+    el.textContent = text;
+    el.classList.remove('flash');
+    void el.offsetWidth;
+    el.classList.add('flash');
+  }
+
+  function speakCommand(text) {
+    synth.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'es-ES';
+    utter.rate = 0.85;
+    utter.pitch = 0.9;
+    utter.volume = 1;
+    const v = voices.find(v => v.lang.startsWith('es') && v.name.includes('Google'))
+           || voices.find(v => v.lang.startsWith('es'));
+    if (v) utter.voice = v;
+    synth.speak(utter);
+  }
+
+  document.addEventListener('keydown', (e) => {
+    const map = { '1': 'CAMINA', '2': 'SALTA', '3': 'AGÁCHATE' };
+    if (map[e.key]) { showFlash(map[e.key]); speakCommand(map[e.key]); }
+    if (e.key === '0') showFlash('—');
+  });
+
+  if ('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(() => {});
+</script>
+</body>
+</html>
