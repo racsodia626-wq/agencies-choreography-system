@@ -102,8 +102,8 @@ const Index = () => {
           <SectionLabel>{t('SOBRE EL PROYECTO', 'ABOUT THE PROJECT')}</SectionLabel>
           <p className="text-base md:text-lg leading-relaxed text-foreground/80">
             {t(
-              'AGENCIAS investiga la transferencia de agencia corporal usando mecánicas de videojuegos como estructura performativa. No es una obra fija ni improvisación libre — es interacción estructurada mediante comandos, donde el cuerpo actúa como avatar dentro de un sistema.',
-              'AGENCIAS investigates the transfer of bodily agency using video game mechanics as a performative structure. It is neither a fixed piece nor free improvisation — it is structured interaction through commands, where the body operates as an avatar within a system.'
+              'AGENCIAS usa la lógica de los videojuegos como estructura performativa. No es una obra fija ni improvisación libre — es interacción estructurada mediante comandos, donde el cuerpo actúa como avatar dentro de un sistema.',
+              'AGENCIAS uses the logic of video games as a performative structure. It is neither a fixed piece nor free improvisation — it is structured interaction through commands, where the body operates as an avatar within a system.'
             )}
           </p>
         </div>
