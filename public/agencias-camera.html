@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AGENCIAS — Cámara</title>
+<script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@600;700&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --cyan: #00D4FF;
+  --dark: #050810;
+  --success: #00FF88;
+}
+body {
+  background: var(--dark);
+  font-family: 'Share Tech Mono', monospace;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+.scanlines {
+  position: fixed; top:0; left:0; width:100%; height:100%;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px);
+  pointer-events: none; z-index: 0;
+}
+#setup-screen {
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 2rem;
+  text-align: center;
+}
+.title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: white;
+  text-shadow: 0 0 30px rgba(0,212,255,0.5);
+}
+.subtitle {
+  font-size: 0.65rem;
+  letter-spacing: 0.3em;
+  color: rgba(0,212,255,0.6);
+}
+.role-badge {
+  border: 1px solid var(--cyan);
+  padding: 0.5rem 1.5rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.3em;
+  color: var(--cyan);
+}
+.start-btn {
+  background: transparent;
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.2em;
+  padding: 0.9rem 2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.start-btn:hover { background: rgba(0,212,255,0.1); color: white; }
+
+#camera-screen {
+  display: none;
+  position: fixed;
+  top:0; left:0; width:100%; height:100%;
+  z-index: 5;
+}
+#local-video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transform: scaleX(1);
+}
+#status-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 20;
+  padding: 1rem 1.2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(to bottom, rgba(5,8,16,0.9), transparent);
+}
+.hud-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--cyan);
+}
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  color: rgba(255,255,255,0.5);
+}
+.dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  animation: pulse 2s infinite;
+}
+.dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+#code-display {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 20;
+  padding: 1.5rem;
+  background: linear-gradient(to top, rgba(5,8,16,0.95), transparent);
+  text-align: center;
+}
+.code-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.25em;
+  color: rgba(0,212,255,0.5);
+  margin-bottom: 0.5rem;
+}
+.code-value {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: white;
+  text-shadow: 0 0 20px rgba(0,212,255,0.6);
+}
+.code-hint {
+  font-size: 0.55rem;
+  letter-spacing: 0.15em;
+  color: rgba(255,255,255,0.25);
+  margin-top: 0.5rem;
+}
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+
+<div id="setup-screen">
+  <div class="title">AGENCIAS</div>
+  <div class="subtitle">SISTEMA DE CONTROL — v0.4</div>
+  <div class="role-badge">DISPOSITIVO: CÁMARA / PERFORMER</div>
+  <p style="font-size:0.65rem; color:rgba(255,255,255,0.3); max-width:280px; line-height:1.8; letter-spacing:0.05em">
+    Este dispositivo transmite la cámara al controlador.<br>
+    Colócalo fijo apuntando al performer.
+  </p>
+  <button class="start-btn" onclick="startCamera()">▶ ACTIVAR CÁMARA</button>
+</div>
+
+<div id="camera-screen">
+  <video id="local-video" autoplay playsinline muted></video>
+  <div id="status-overlay">
+    <div class="hud-title">AGENCIAS</div>
+    <div class="status-pill">
+      <div class="dot" id="conn-dot"></div>
+      <span id="conn-text">ESPERANDO CONTROLADOR</span>
+    </div>
+  </div>
+  <div id="code-display">
+    <div class="code-label">CÓDIGO DE SALA — COMPARTE CON EL CONTROLADOR</div>
+    <div class="code-value" id="room-code">----</div>
+    <div class="code-hint">El controlador necesita este código para conectarse</div>
+  </div>
+</div>
+
+<script>
+let peer, localStream;
+
+async function startCamera() {
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+
+    document.getElementById('local-video').srcObject = localStream;
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('camera-screen').style.display = 'block';
+
+    // Generate short room code
+    const code = Math.random().toString(36).substring(2, 7).toLowerCase();
+    document.getElementById('room-code').textContent = code;
+
+    // Init PeerJS
+    peer = new Peer('agencias-cam-' + code, {
+      host: '0.peerjs.com',
+      port: 443,
+      path: '/',
+      secure: true,
+      debug: 1,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+      }
+    });
+
+    peer.on('open', (id) => {
+      console.log('Camera peer ready:', id);
+      document.getElementById('conn-text').textContent = 'LISTO — ESPERANDO';
+    });
+
+    peer.on('call', call => {
+      call.answer(localStream);
+      document.getElementById('conn-dot').classList.add('connected');
+      document.getElementById('conn-text').textContent = 'CONTROLADOR CONECTADO';
+    });
+
+    peer.on('error', e => {
+      console.error(e);
+      document.getElementById('conn-text').textContent = 'ERROR: ' + e.type;
+    });
+
+  } catch(e) {
+    alert('Error al acceder a la cámara: ' + e.message);
+  }
+}
+</script>
+</body>
+</html>
