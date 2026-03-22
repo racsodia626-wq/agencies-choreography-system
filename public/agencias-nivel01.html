@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AGENCIAS — Nivel 01</title>
+<script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600;700&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; touch-action: manipulation; }
+:root {
+  --cyan: #00D4FF;
+  --cyan-dim: rgba(0,212,255,0.12);
+  --cyan-glow: rgba(0,212,255,0.4);
+  --dark: #050810;
+  --success: #00FF88;
+  --danger: #FF3366;
+  --orange: #FFB800;
+  --purple: #AA88FF;
+}
+body { background: var(--dark); font-family: 'Share Tech Mono', monospace; height: 100vh; overflow: hidden; color: white; }
+
+/* ── SETUP SCREEN ── */
+#setup-screen {
+  position: fixed; top:0; left:0; width:100%; height:100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 100; background: var(--dark); gap: 1.2rem; padding: 2rem; text-align: center;
+  transition: opacity 0.4s ease;
+}
+#setup-screen.hidden { opacity:0; pointer-events:none; }
+.title { font-family: 'Rajdhani', sans-serif; font-size: clamp(2.5rem,10vw,4rem); font-weight:700; letter-spacing:0.2em; color:white; text-shadow: 0 0 30px var(--cyan-glow); }
+.subtitle { font-size:0.65rem; letter-spacing:0.3em; color:rgba(0,212,255,0.6); }
+.role-badge { border:1px solid var(--cyan); padding:0.5rem 1.5rem; font-size:0.65rem; letter-spacing:0.25em; color:var(--cyan); }
+.code-input-wrap { display:flex; flex-direction:column; gap:0.5rem; width:100%; max-width:280px; }
+.code-input-label { font-size:0.6rem; letter-spacing:0.2em; color:rgba(0,212,255,0.5); text-align:left; }
+#room-input {
+  background:rgba(0,212,255,0.05); border:1px solid rgba(0,212,255,0.3);
+  color:white; font-family:'Share Tech Mono',monospace; font-size:1.4rem; letter-spacing:0.3em;
+  padding:0.8rem 1rem; text-align:center; width:100%; outline:none;
+}
+#room-input:focus { border-color:var(--cyan); }
+.connect-btn {
+  background:transparent; border:1px solid var(--cyan); color:var(--cyan);
+  font-family:'Share Tech Mono',monospace; font-size:0.85rem; letter-spacing:0.2em;
+  padding:0.9rem 2rem; cursor:pointer; transition:all 0.2s; width:100%; max-width:280px;
+}
+.connect-btn:hover { background:rgba(0,212,255,0.1); color:white; }
+.skip-btn { background:transparent; border:none; color:rgba(255,255,255,0.2); font-family:'Share Tech Mono',monospace; font-size:0.6rem; letter-spacing:0.15em; cursor:pointer; text-decoration:underline; }
+
+/* ── CAMERA VIEW ── */
+#remote-video {
+  position: fixed; top:0; left:0; width:100%; height:55vh;
+  object-fit: cover; z-index:1; opacity:0; transition: opacity 0.6s;
+}
+#remote-video.active { opacity:1; }
+
+#no-video {
+  position: fixed; top:0; left:0; width:100%; height:55vh;
+  z-index:1; display:flex; align-items:center; justify-content:center;
+  background: var(--dark);
+}
+.no-video-grid {
+  width:100%; height:100%;
+  background: repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(0,212,255,0.03) 40px,rgba(0,212,255,0.03) 41px),
+              repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(0,212,255,0.03) 40px,rgba(0,212,255,0.03) 41px);
+  display:flex; align-items:center; justify-content:center;
+}
+.no-video-text { font-size:0.6rem; letter-spacing:0.3em; color:rgba(0,212,255,0.2); text-align:center; }
+
+.scanlines {
+  position:fixed; top:0; left:0; width:100%; height:55vh;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px);
+  pointer-events:none; z-index:5;
+}
+.vignette {
+  position:fixed; top:0; left:0; width:100%; height:55vh;
+  background:radial-gradient(ellipse at center,transparent 50%,rgba(5,8,16,0.7) 100%);
+  pointer-events:none; z-index:6;
+}
+
+/* ── TUTORIAL OVERLAY ── */
+#tutorial-overlay {
+  position:fixed; top:0; left:0; width:100%; height:55vh;
+  z-index:7; pointer-events:none;
+}
+
+/* Command intro card */
+#cmd-intro {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:rgba(5,8,16,0.92); border:1px solid var(--cyan);
+  padding:1.5rem 2rem; text-align:center; min-width:220px;
+  opacity:0; transition:opacity 0.4s ease; pointer-events:none;
+}
+#cmd-intro.visible { opacity:1; }
+#cmd-intro-name {
+  font-family:'Rajdhani',sans-serif; font-size:2rem; font-weight:700;
+  letter-spacing:0.2em; color:white; margin-bottom:0.5rem;
+}
+#cmd-intro-anim {
+  font-size:2.5rem; margin:0.5rem 0; line-height:1;
+}
+#cmd-intro-desc {
+  font-size:0.65rem; letter-spacing:0.15em; color:rgba(255,255,255,0.5);
+  line-height:1.6; margin-bottom:0.8rem;
+}
+#cmd-intro-hint {
+  font-size:0.6rem; letter-spacing:0.2em; color:var(--cyan); opacity:0.7;
+  animation: blink 1.2s infinite;
+}
+@keyframes blink { 0%,100%{opacity:0.7} 50%{opacity:0.2} }
+
+/* Scenario zone */
+#scenario-zone {
+  position:absolute; border:2px solid; border-radius:4px;
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; transition:opacity 0.5s; pointer-events:none;
+}
+#scenario-zone.visible { opacity:1; animation: zone-pulse 2s infinite; }
+@keyframes zone-pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* Progress bar */
+#progress-bar {
+  position:absolute; bottom:0; left:0; right:0; height:3px;
+  background:rgba(0,212,255,0.15);
+}
+#progress-fill {
+  height:100%; background:var(--cyan); transition:width 0.6s ease;
+  box-shadow:0 0 8px var(--cyan);
+}
+
+/* CMD Flash */
+#cmd-flash {
+  position:fixed; top:28%; left:50%; transform:translate(-50%,-50%);
+  z-index:8; pointer-events:none; font-family:'Rajdhani',sans-serif;
+  font-size:clamp(2rem,10vw,4rem); font-weight:700; letter-spacing:0.1em;
+  color:white; text-align:center; white-space:nowrap; opacity:0;
+}
+#cmd-flash.flash { animation:cmd-anim 1s ease forwards; }
+@keyframes cmd-anim { 0%{opacity:1;transform:translate(-50%,-50%) scale(1.1)} 30%{opacity:1;transform:translate(-50%,-50%) scale(1)} 100%{opacity:0;transform:translate(-50%,-50%) scale(0.95)} }
+
+/* Unlock effect */
+#unlock-msg {
+  position:fixed; top:20%; left:50%; transform:translateX(-50%);
+  z-index:20; pointer-events:none; text-align:center;
+  font-family:'Rajdhani',sans-serif; font-size:1.2rem; font-weight:700;
+  letter-spacing:0.2em; color:var(--success);
+  opacity:0;
+}
+#unlock-msg.show { animation:unlock-anim 1.5s ease forwards; }
+@keyframes unlock-anim { 0%{opacity:0;transform:translateX(-50%) translateY(10px)} 20%{opacity:1;transform:translateX(-50%) translateY(0)} 70%{opacity:1} 100%{opacity:0;transform:translateX(-50%) translateY(-10px)} }
+
+/* ── HUD ── */
+#hud-top {
+  position:fixed; top:0; left:0; right:0; z-index:10;
+  padding:0.6rem 1rem; display:flex; justify-content:space-between; align-items:center;
+  background:linear-gradient(to bottom,rgba(5,8,16,0.9),transparent);
+}
+.hud-title { font-family:'Rajdhani',sans-serif; font-size:0.9rem; font-weight:700; letter-spacing:0.2em; color:var(--cyan); }
+.hud-right { display:flex; align-items:center; gap:0.8rem; }
+.hud-status { font-size:0.55rem; letter-spacing:0.12em; color:rgba(255,255,255,0.4); display:flex; align-items:center; gap:0.4rem; }
+.dot { width:5px; height:5px; border-radius:50%; background:var(--cyan); animation:pulse 2s infinite; }
+.dot.live { background:var(--success); box-shadow:0 0 5px var(--success); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+#level-badge {
+  font-size:0.55rem; letter-spacing:0.15em; color:var(--cyan);
+  border:1px solid rgba(0,212,255,0.3); padding:0.2rem 0.5rem;
+}
+
+/* Tone bar */
+#tone-bar { position:fixed; top:0; left:0; right:0; height:3px; z-index:15; background:var(--cyan); transform:scaleX(0); transform-origin:left; transition:transform 0.1s; }
+#tone-bar.active { transform:scaleX(1); }
+
+/* ── CONTROLS ── */
+#controls {
+  position:fixed; bottom:0; left:0; right:0; z-index:10;
+  height:45vh; padding:0.6rem 1rem 1rem;
+  background:linear-gradient(to top,rgba(5,8,16,0.99) 70%,transparent);
+  display:flex; align-items:center;
+}
+.gamepad-layout { display:flex; justify-content:space-between; align-items:center; gap:0.5rem; width:100%; }
+.dpad { display:grid; grid-template-columns:repeat(3,52px); grid-template-rows:repeat(3,52px); gap:3px; }
+.dpad-btn {
+  background:rgba(13,21,37,0.9); border:1px solid rgba(0,212,255,0.15); color:rgba(255,255,255,0.3);
+  cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:1px; border-radius:6px; font-family:'Rajdhani',sans-serif; font-size:0.65rem;
+  font-weight:600; text-transform:uppercase; transition:all 0.2s;
+  -webkit-tap-highlight-color:transparent; user-select:none; position:relative;
+}
+.dpad-btn .arrow { font-size:1rem; line-height:1; }
+.dpad-btn.locked { opacity:0.3; pointer-events:none; }
+.dpad-btn.unlocked { border-color:rgba(0,212,255,0.4); color:white; }
+.dpad-btn.unlocked:active, .dpad-btn.unlocked.holding {
+  background:var(--cyan-dim); border-color:var(--cyan);
+  box-shadow:0 0 12px var(--cyan-glow); transform:scale(0.95);
+}
+.dpad-center { grid-column:2; grid-row:2; background:rgba(0,212,255,0.04); border-color:rgba(0,212,255,0.05); cursor:default; pointer-events:none; }
+.dpad-btn.empty { background:transparent; border:none; pointer-events:none; }
+
+/* Unlock animation on button */
+.dpad-btn.just-unlocked { animation:btn-unlock 0.6s ease forwards; }
+@keyframes btn-unlock {
+  0%{box-shadow:0 0 0px var(--cyan)}
+  50%{box-shadow:0 0 20px var(--cyan),0 0 40px var(--cyan-glow)}
+  100%{box-shadow:none}
+}
+
+.action-grid { display:grid; grid-template-columns:repeat(2,58px); grid-template-rows:repeat(2,58px); gap:6px; }
+.action-btn {
+  border-radius:50%; background:rgba(13,21,37,0.9); border:1px solid rgba(255,255,255,0.08);
+  color:rgba(255,255,255,0.3); cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+  font-family:'Rajdhani',sans-serif; font-size:0.6rem; font-weight:600; text-transform:uppercase;
+  transition:all 0.2s; -webkit-tap-highlight-color:transparent; user-select:none;
+}
+.action-btn .icon { font-size:1.1rem; line-height:1; }
+.action-btn.locked { opacity:0.3; pointer-events:none; }
+.action-btn.unlocked { border-width:1px; }
+.action-btn.salta.unlocked { border-color:rgba(0,255,136,0.4); color:var(--success); }
+.action-btn.agachate.unlocked { border-color:rgba(255,184,0,0.4); color:var(--orange); }
+.action-btn.rodar.unlocked { border-color:rgba(170,136,255,0.4); color:var(--purple); }
+.action-btn.stop.unlocked { border-color:rgba(255,51,102,0.4); color:var(--danger); }
+.action-btn.unlocked:active { transform:scale(0.93); }
+.action-btn.salta.unlocked:active { background:rgba(0,255,136,0.1); border-color:var(--success); }
+.action-btn.agachate.unlocked:active { background:rgba(255,184,0,0.1); border-color:var(--orange); }
+.action-btn.rodar.unlocked:active { background:rgba(170,136,255,0.1); border-color:var(--purple); }
+.action-btn.stop.unlocked:active { background:rgba(255,51,102,0.1); border-color:var(--danger); }
+.action-btn.just-unlocked { animation:btn-unlock 0.6s ease forwards; }
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup-screen">
+  <div class="title">AGENCIAS</div>
+  <div class="subtitle">NIVEL 01 — TUTORIAL</div>
+  <div class="role-badge">DISPOSITIVO: CONTROLADOR</div>
+  <div class="code-input-wrap">
+    <div class="code-input-label">CÓDIGO DE SALA (de la cámara)</div>
+    <input id="room-input" type="text" maxlength="5" placeholder="xxxxx"
+      autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
+  </div>
+  <button class="connect-btn" onclick="connectToCamera()">▶ INICIAR NIVEL 01</button>
+  <button class="skip-btn" onclick="skipCamera()">continuar sin cámara</button>
+</div>
+
+<!-- CAMERA -->
+<video id="remote-video" autoplay playsinline></video>
+<div id="no-video"><div class="no-video-grid"><div class="no-video-text">ESPERANDO CONEXIÓN<br>CON CÁMARA</div></div></div>
+
+<!-- OVERLAYS -->
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<!-- TUTORIAL OVERLAY -->
+<div id="tutorial-overlay">
+  <div id="cmd-intro">
+    <div id="cmd-intro-name"></div>
+    <div id="cmd-intro-anim"></div>
+    <div id="cmd-intro-desc"></div>
+    <div id="cmd-intro-hint">PRESIONA EL BOTÓN PARA ACTIVAR</div>
+  </div>
+  <div id="scenario-zone"></div>
+  <div id="progress-bar"><div id="progress-fill" style="width:0%"></div></div>
+</div>
+
+<div id="tone-bar"></div>
+<div id="cmd-flash"></div>
+<div id="unlock-msg"></div>
+
+<!-- HUD -->
+<div id="hud-top">
+  <div class="hud-title">AGENCIAS</div>
+  <div class="hud-right">
+    <div id="level-badge">NIVEL 01</div>
+    <div class="hud-status">
+      <div class="dot" id="conn-dot"></div>
+      <span id="conn-text">DESCONECTADO</span>
+    </div>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div id="controls">
+  <div class="gamepad-layout">
+    <div class="dpad">
+      <div class="dpad-btn empty"></div>
+      <button class="dpad-btn locked" id="btn-avanza"
+        ontouchstart="useCmd('AVANZA',this)" ontouchend="stopHold()"
+        onmousedown="useCmd('AVANZA',this)" onmouseup="stopHold()">
+        <span class="arrow">↑</span><span>AVANZA</span>
+      </button>
+      <div class="dpad-btn empty"></div>
+      <button class="dpad-btn locked" id="btn-izq"
+        ontouchstart="useCmd('GIRA IZQ',this)" ontouchend="stopHold()"
+        onmousedown="useCmd('GIRA IZQ',this)" onmouseup="stopHold()">
+        <span class="arrow">←</span><span>IZQ</span>
+      </button>
+      <div class="dpad-btn dpad-center"><span style="font-size:0.5rem;color:rgba(0,212,255,0.2)">AGS</span></div>
+      <button class="dpad-btn locked" id="btn-der"
+        ontouchstart="useCmd('GIRA DER',this)" ontouchend="stopHold()"
+        onmousedown="useCmd('GIRA DER',this)" onmouseup="stopHold()">
+        <span class="arrow">→</span><span>DER</span>
+      </button>
+      <div class="dpad-btn empty"></div>
+      <button class="dpad-btn locked" id="btn-retro"
+        ontouchstart="useCmd('RETROCEDE',this)" ontouchend="stopHold()"
+        onmousedown="useCmd('RETROCEDE',this)" onmouseup="stopHold()">
+        <span class="arrow">↓</span><span>RETRO</span>
+      </button>
+      <div class="dpad-btn empty"></div>
+    </div>
+    <div class="action-grid">
+      <button class="action-btn salta locked" id="btn-salta"
+        ontouchstart="useCmd('SALTA',this)" onmousedown="useCmd('SALTA',this)">
+        <span class="icon">⬆</span><span>SALTA</span>
+      </button>
+      <button class="action-btn agachate locked" id="btn-agachate"
+        ontouchstart="useCmd('AGÁCHATE',this)" onmousedown="useCmd('AGÁCHATE',this)">
+        <span class="icon">⬇</span><span>AGÁCHATE</span>
+      </button>
+      <button class="action-btn rodar locked" id="btn-rodar"
+        ontouchstart="useCmd('RODAR',this)" onmousedown="useCmd('RODAR',this)">
+        <span class="icon">↺</span><span>RODAR</span>
+      </button>
+      <button class="action-btn stop locked" id="btn-stop"
+        ontouchstart="useCmd('STOP',this)" onmousedown="useCmd('STOP',this)">
+        <span class="icon">■</span><span>STOP</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════
+// TUTORIAL SEQUENCE
+// ═══════════════════════════════
+const COMMANDS = [
+  {
+    id: 'AVANZA', btnId: 'btn-avanza', type: 'nav',
+    anim: '→', color: '#00D4FF',
+    desc: 'El performer avanza hacia adelante.\nMantén presionado para continuar.',
+    scenario: { text: 'GUÍA AL PERFORMER HACIA ADELANTE', color: '#00D4FF',
+      zone: { left:'35%', top:'20%', width:'30%', height:'25%' } }
+  },
+  {
+    id: 'RETROCEDE', btnId: 'btn-retro', type: 'nav',
+    anim: '←', color: '#00D4FF',
+    desc: 'El performer retrocede.\nMantén presionado para continuar.',
+    scenario: { text: 'REGRESA AL PUNTO DE INICIO', color: '#00D4FF',
+      zone: { left:'35%', top:'55%', width:'30%', height:'20%' } }
+  },
+  {
+    id: 'GIRA IZQ', btnId: 'btn-izq', type: 'nav',
+    anim: '↺', color: '#00D4FF',
+    desc: 'El performer gira hacia la izquierda.\nUn toque para girar.',
+    scenario: { text: 'GIRA Y EXPLORA EL ESPACIO', color: '#00D4FF',
+      zone: { left:'5%', top:'30%', width:'25%', height:'35%' } }
+  },
+  {
+    id: 'GIRA DER', btnId: 'btn-der', type: 'nav',
+    anim: '↻', color: '#00D4FF',
+    desc: 'El performer gira hacia la derecha.\nUn toque para girar.',
+    scenario: { text: 'GIRA Y EXPLORA EL ESPACIO', color: '#00D4FF',
+      zone: { left:'70%', top:'30%', width:'25%', height:'35%' } }
+  },
+  {
+    id: 'SALTA', btnId: 'btn-salta', type: 'action',
+    anim: '⬆', color: '#00FF88',
+    desc: 'El performer salta.\nUso: superar obstáculos en el piso.',
+    scenario: { text: '⬆ SALTA SOBRE LA ZONA', color: '#00FF88',
+      zone: { left:'30%', top:'60%', width:'40%', height:'12%' } }
+  },
+  {
+    id: 'AGÁCHATE', btnId: 'btn-agachate', type: 'action',
+    anim: '⬇', color: '#FFB800',
+    desc: 'El performer se agacha.\nUso: pasar bajo obstáculos.',
+    scenario: { text: '⬇ AGÁCHATE PARA PASAR', color: '#FFB800',
+      zone: { left:'20%', top:'15%', width:'60%', height:'8%' } }
+  },
+  {
+    id: 'RODAR', btnId: 'btn-rodar', type: 'action',
+    anim: '↺', color: '#AA88FF',
+    desc: 'El performer rueda por el suelo.\nUso: transición rápida de nivel o zona.',
+    scenario: { text: '↺ RUEDA HACIA LA ZONA', color: '#AA88FF',
+      zone: { left:'60%', top:'35%', width:'30%', height:'30%' } }
+  },
+  {
+    id: 'STOP', btnId: 'btn-stop', type: 'action',
+    anim: '■', color: '#FF3366',
+    desc: 'El performer se detiene completamente.\nUso: emergencia o pausa total.',
+    scenario: { text: '■ DETÉN AL PERFORMER', color: '#FF3366',
+      zone: null }
+  },
+];
+
+let currentStep = 0;
+let phase = 'intro'; // intro | scenario | free
+let cmdUsed = {};
+let tutorialActive = false;
+let holdInterval = null;
+let activeBtn = null;
+let dataConn = null;
+let peer;
+
+// ═══════════════════════════════
+// AUDIO
+// ═══════════════════════════════
+const synth = window.speechSynthesis;
+let voices = [];
+let toneCtx = null, toneNode = null, toneGain = null;
+
+function loadVoices() { voices = synth.getVoices(); }
+loadVoices();
+if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = loadVoices;
+
+function initAudio() { if (toneCtx) return; toneCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+function playSound(type) {
+  initAudio();
+  const g = toneCtx.createGain(); g.connect(toneCtx.destination);
+  if (type === 'unlock') {
+    [440,554,659].forEach((freq,i) => {
+      const o = toneCtx.createOscillator(); o.type='sine'; o.frequency.value=freq;
+      const og = toneCtx.createGain(); og.connect(toneCtx.destination);
+      og.gain.setValueAtTime(0,toneCtx.currentTime+i*0.1);
+      og.gain.linearRampToValueAtTime(0.3,toneCtx.currentTime+i*0.1+0.05);
+      og.gain.exponentialRampToValueAtTime(0.01,toneCtx.currentTime+i*0.1+0.25);
+      o.connect(og); o.start(toneCtx.currentTime+i*0.1); o.stop(toneCtx.currentTime+i*0.1+0.25);
+    });
+  } else if (type === 'scenario_complete') {
+    [523,659,784,1047].forEach((freq,i) => {
+      const o = toneCtx.createOscillator(); o.type='sine'; o.frequency.value=freq;
+      const og = toneCtx.createGain(); og.connect(toneCtx.destination);
+      og.gain.setValueAtTime(0,toneCtx.currentTime+i*0.12);
+      og.gain.linearRampToValueAtTime(0.35,toneCtx.currentTime+i*0.12+0.06);
+      og.gain.exponentialRampToValueAtTime(0.01,toneCtx.currentTime+i*0.12+0.3);
+      o.connect(og); o.start(toneCtx.currentTime+i*0.12); o.stop(toneCtx.currentTime+i*0.12+0.3);
+    });
+  } else if (type === 'poing') {
+    const o = toneCtx.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(300,toneCtx.currentTime); o.frequency.exponentialRampToValueAtTime(800,toneCtx.currentTime+0.15);
+    g.gain.setValueAtTime(0.4,toneCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01,toneCtx.currentTime+0.3);
+    o.connect(g); o.start(); o.stop(toneCtx.currentTime+0.3);
+  } else if (type === 'tick') {
+    const o = toneCtx.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(400,toneCtx.currentTime); o.frequency.exponentialRampToValueAtTime(120,toneCtx.currentTime+0.12);
+    g.gain.setValueAtTime(0.35,toneCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01,toneCtx.currentTime+0.2);
+    o.connect(g); o.start(); o.stop(toneCtx.currentTime+0.2);
+  } else if (type === 'roll') {
+    const buf = toneCtx.createBuffer(1,toneCtx.sampleRate*0.3,toneCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);
+    const s = toneCtx.createBufferSource(); s.buffer=buf;
+    g.gain.setValueAtTime(0.4,toneCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01,toneCtx.currentTime+0.3);
+    s.connect(g); s.start();
+  } else if (type === 'stop') {
+    const o = toneCtx.createOscillator(); o.type='square'; o.frequency.value=200;
+    g.gain.setValueAtTime(0.3,toneCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01,toneCtx.currentTime+0.08);
+    o.connect(g); o.start(); o.stop(toneCtx.currentTime+0.08);
+  } else if (type === 'click') {
+    const o = toneCtx.createOscillator(); o.type='sine'; o.frequency.value=600;
+    g.gain.setValueAtTime(0.2,toneCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01,toneCtx.currentTime+0.06);
+    o.connect(g); o.start(); o.stop(toneCtx.currentTime+0.06);
+  }
+}
+
+function startTone(freq=80) {
+  initAudio(); if (toneNode) return;
+  toneGain = toneCtx.createGain();
+  toneGain.gain.setValueAtTime(0,toneCtx.currentTime);
+  toneGain.gain.linearRampToValueAtTime(0.3,toneCtx.currentTime+0.1);
+  toneNode = toneCtx.createOscillator();
+  toneNode.type='sine'; toneNode.frequency.value=freq;
+  toneNode.connect(toneGain); toneGain.connect(toneCtx.destination); toneNode.start();
+  document.getElementById('tone-bar').classList.add('active');
+}
+
+function stopTone() {
+  if (!toneNode) return;
+  toneGain.gain.linearRampToValueAtTime(0,toneCtx.currentTime+0.15);
+  setTimeout(()=>{ if(toneNode){toneNode.stop();toneNode=null;toneGain=null;} },200);
+  document.getElementById('tone-bar').classList.remove('active');
+}
+
+function speak(text) {
+  synth.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang='es-ES'; u.rate=0.85; u.pitch=0.9; u.volume=1;
+  const v = voices.find(v=>v.lang.startsWith('es')&&v.name.includes('Google'))||voices.find(v=>v.lang.startsWith('es'));
+  if (v) u.voice=v;
+  synth.speak(u);
+}
+
+function showFlash(text, color='#00D4FF') {
+  const el = document.getElementById('cmd-flash');
+  el.textContent=text; el.style.color=color;
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+}
+
+function sendCommand(text, sound, color) {
+  if (dataConn && dataConn.open) dataConn.send(JSON.stringify({text,sound,color}));
+}
+
+// ═══════════════════════════════
+// TUTORIAL LOGIC
+// ═══════════════════════════════
+function startTutorial() {
+  tutorialActive = true;
+  showStep(0);
+}
+
+function showStep(idx) {
+  if (idx >= COMMANDS.length) { completeTutorial(); return; }
+  currentStep = idx;
+  phase = 'intro';
+  const cmd = COMMANDS[idx];
+
+  // Update progress
+  const pct = (idx / COMMANDS.length) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+
+  // Unlock current button
+  unlockButton(cmd.btnId);
+
+  // Show intro card
+  const intro = document.getElementById('cmd-intro');
+  document.getElementById('cmd-intro-name').textContent = cmd.id;
+  document.getElementById('cmd-intro-name').style.color = cmd.color;
+  document.getElementById('cmd-intro-anim').textContent = cmd.anim;
+  document.getElementById('cmd-intro-anim').style.color = cmd.color;
+  document.getElementById('cmd-intro-desc').textContent = cmd.desc;
+  document.getElementById('cmd-intro-hint').textContent = '[ PRESIONA ' + cmd.id + ' ]';
+  intro.classList.add('visible');
+
+  // Speak command name
+  setTimeout(() => speak(cmd.id), 300);
+}
+
+function unlockButton(btnId) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.classList.remove('locked');
+  btn.classList.add('unlocked', 'just-unlocked');
+  setTimeout(() => btn.classList.remove('just-unlocked'), 600);
+  playSound('unlock');
+}
+
+function onCommandUsed(cmdId) {
+  const cmd = COMMANDS[currentStep];
+  if (!cmd || cmd.id !== cmdId) return;
+  if (cmdUsed[cmdId]) return;
+
+  cmdUsed[cmdId] = true;
+
+  if (phase === 'intro') {
+    // Hide intro, show scenario
+    document.getElementById('cmd-intro').classList.remove('visible');
+    phase = 'scenario';
+
+    setTimeout(() => {
+      showScenario(cmd);
+    }, 500);
+  } else if (phase === 'scenario') {
+    // Check if scenario completed
+    completeScenario(cmd);
+  }
+}
+
+function showScenario(cmd) {
+  if (!cmd.scenario) { advanceStep(); return; }
+
+  // Show scenario zone if exists
+  const zone = document.getElementById('scenario-zone');
+  if (cmd.scenario.zone) {
+    const z = cmd.scenario.zone;
+    zone.style.left = z.left;
+    zone.style.top = z.top;
+    zone.style.width = z.width;
+    zone.style.height = z.height;
+    zone.style.borderColor = cmd.scenario.color;
+    zone.style.boxShadow = `0 0 15px ${cmd.scenario.color}40, inset 0 0 20px ${cmd.scenario.color}10`;
+    zone.innerHTML = `<span style="font-size:0.55rem;letter-spacing:0.15em;color:${cmd.scenario.color};opacity:0.8">${cmd.scenario.text}</span>`;
+    zone.classList.add('visible');
+  }
+
+  // Re-allow command use for scenario
+  delete cmdUsed[cmd.id];
+
+  // Hint after 2s
+  setTimeout(() => {
+    if (phase === 'scenario') {
+      showFlash(cmd.id, cmd.color);
+    }
+  }, 2000);
+}
+
+function completeScenario(cmd) {
+  phase = 'free';
+  playSound('scenario_complete');
+
+  // Hide zone
+  document.getElementById('scenario-zone').classList.remove('visible');
+
+  // Show unlock message
+  const msg = document.getElementById('unlock-msg');
+  msg.textContent = '✓ ' + cmd.id + ' DESBLOQUEADO';
+  msg.style.color = cmd.color;
+  msg.classList.remove('show');
+  void msg.offsetWidth;
+  msg.classList.add('show');
+
+  // Advance after delay
+  setTimeout(() => advanceStep(), 1800);
+}
+
+function advanceStep() {
+  document.getElementById('cmd-intro').classList.remove('visible');
+  document.getElementById('scenario-zone').classList.remove('visible');
+  showStep(currentStep + 1);
+}
+
+function completeTutorial() {
+  tutorialActive = false;
+  document.getElementById('progress-fill').style.width = '100%';
+  document.getElementById('cmd-intro').classList.remove('visible');
+  document.getElementById('scenario-zone').classList.remove('visible');
+
+  const msg = document.getElementById('unlock-msg');
+  msg.textContent = '▶ NIVEL 01 COMPLETADO';
+  msg.style.color = '#00FF88';
+  msg.classList.remove('show');
+  void msg.offsetWidth;
+  msg.classList.add('show');
+
+  playSound('scenario_complete');
+  setTimeout(() => playSound('scenario_complete'), 500);
+
+  document.getElementById('level-badge').textContent = 'NIVEL 01 ✓';
+  document.getElementById('level-badge').style.color = '#00FF88';
+  document.getElementById('level-badge').style.borderColor = 'rgba(0,255,136,0.4)';
+}
+
+// ═══════════════════════════════
+// COMMAND HANDLING
+// ═══════════════════════════════
+function useCmd(cmd, btn) {
+  initAudio();
+  const cmdDef = COMMANDS.find(c => c.id === cmd);
+  if (!cmdDef) return;
+
+  // Visual + audio feedback
+  speak(cmd);
+  showFlash(cmd, cmdDef.color);
+
+  let sound = null;
+  if (cmd === 'AVANZA' || cmd === 'RETROCEDE') {
+    startTone(cmd === 'RETROCEDE' ? 120 : 80);
+    if (cmd === 'AVANZA' || cmd === 'RETROCEDE') {
+      if (activeBtn) return;
+      activeBtn = btn; btn.classList.add('holding');
+      holdInterval = setInterval(() => {
+        if (dataConn && dataConn.open) dataConn.send(JSON.stringify({text:cmd, sound:'tone_start', color:cmdDef.color}));
+      }, 400);
+    }
+  } else if (cmd === 'GIRA IZQ' || cmd === 'GIRA DER') {
+    playSound('click'); sound = 'click';
+  } else if (cmd === 'SALTA') { playSound('poing'); sound = 'poing'; }
+  else if (cmd === 'AGÁCHATE') { playSound('tick'); sound = 'tick'; }
+  else if (cmd === 'RODAR') { playSound('roll'); sound = 'roll'; }
+  else if (cmd === 'STOP') { playSound('stop'); stopTone(); sound = 'stop'; }
+
+  sendCommand(cmd, sound, cmdDef.color);
+  onCommandUsed(cmd);
+}
+
+function stopHold() {
+  if (holdInterval) { clearInterval(holdInterval); holdInterval = null; }
+  if (activeBtn) { activeBtn.classList.remove('holding'); activeBtn = null; }
+  stopTone();
+}
+
+// ═══════════════════════════════
+// WEBRTC
+// ═══════════════════════════════
+function showRemoteStream(stream) {
+  if (document.getElementById('setup-screen').classList.contains('hidden')) return;
+  const video = document.getElementById('remote-video');
+  video.srcObject = stream;
+  video.muted = false; video.volume = 0.8;
+  video.play().catch(e => console.error(e));
+  video.classList.add('active');
+  document.getElementById('no-video').style.display = 'none';
+  document.getElementById('conn-dot').classList.add('live');
+  document.getElementById('conn-text').textContent = 'EN VIVO';
+  document.getElementById('setup-screen').classList.add('hidden');
+
+  // Start tutorial after connection
+  setTimeout(() => startTutorial(), 1000);
+}
+
+function connectToCamera() {
+  const code = document.getElementById('room-input').value.trim().toLowerCase();
+  if (!code || code.length < 3) { alert('Ingresa el código de la cámara'); return; }
+  initAudio();
+  document.getElementById('conn-text').textContent = 'CONECTANDO...';
+  if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
+
+  peer = new Peer({
+    host: '0.peerjs.com', port: 443, path: '/', secure: true, debug: 1,
+    config: { iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'turn:a.relay.metered.ca:80', username: '53a9857b1f8305801b737ca3', credential: 'UT9byJl/o7k4t9k6' },
+      { urls: 'turn:a.relay.metered.ca:443', username: '53a9857b1f8305801b737ca3', credential: 'UT9byJl/o7k4t9k6' },
+      { urls: 'turn:a.relay.metered.ca:443?transport=tcp', username: '53a9857b1f8305801b737ca3', credential: 'UT9byJl/o7k4t9k6' }
+    ]}
+  });
+
+  peer.on('open', () => {
+    document.getElementById('conn-text').textContent = 'LLAMANDO...';
+    const dest = toneCtx.createMediaStreamDestination();
+    const aT = dest.stream.getAudioTracks()[0];
+    const cv = document.createElement('canvas'); cv.width=640; cv.height=480;
+    cv.getContext('2d').fillRect(0,0,640,480);
+    const vT = cv.captureStream(1).getVideoTracks()[0];
+    const silent = new MediaStream([aT,vT]);
+    const call = peer.call('agencias-cam-'+code, silent);
+    if (!call) { document.getElementById('conn-text').textContent='ERROR'; return; }
+    dataConn = peer.connect('agencias-cam-'+code, {reliable:true});
+    dataConn.on('open', () => console.log('data channel open'));
+    call.on('stream', s => showRemoteStream(s));
+    setTimeout(() => {
+      try {
+        if (call.peerConnection) {
+          call.peerConnection.ontrack = e => { if(e.track.kind==='video'&&e.streams[0]) showRemoteStream(e.streams[0]); };
+          const vR = call.peerConnection.getReceivers().filter(r=>r.track&&r.track.kind==='video');
+          if (vR.length>0) showRemoteStream(new MediaStream(vR.map(r=>r.track)));
+        }
+      } catch(e){}
+    }, 1500);
+    setTimeout(()=>{ if(!document.getElementById('setup-screen').classList.contains('hidden')) document.getElementById('conn-text').textContent='SIN RESPUESTA'; },15000);
+  });
+  peer.on('error', e => { document.getElementById('conn-text').textContent='ERROR: '+e.type; });
+}
+
+function skipCamera() {
+  initAudio();
+  document.getElementById('setup-screen').classList.add('hidden');
+  document.getElementById('conn-text').textContent = 'SIN CÁMARA';
+  setTimeout(() => startTutorial(), 500);
+}
+
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('touchmove', e => { if(e.touches.length>1) e.preventDefault(); },{passive:false});
+if ('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(()=>{});
+</script>
+</body>
+</html>
