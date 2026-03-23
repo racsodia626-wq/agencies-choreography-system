@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AGENCIAS — Nivel 01</title>
+<script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; touch-action:manipulation; }
+:root {
+  --cyan:#00D4FF; --cyan-dim:rgba(0,212,255,0.12); --cyan-glow:rgba(0,212,255,0.4);
+  --dark:#050810; --success:#00FF88; --danger:#FF3366; --orange:#FFB800; --purple:#AA88FF;
+}
+body { background:var(--dark); font-family:'Share Tech Mono',monospace; height:100vh; overflow:hidden; color:white; }
+
+/* SETUP */
+#setup-screen {
+  position:fixed; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  z-index:100; background:var(--dark); gap:1.2rem; padding:2rem; text-align:center;
+  transition:opacity 0.4s;
+}
+#setup-screen.hidden { opacity:0; pointer-events:none; }
+.title { font-family:'Rajdhani',sans-serif; font-size:clamp(2.5rem,10vw,4rem); font-weight:700; letter-spacing:0.2em; color:white; }
+.subtitle { font-size:0.65rem; letter-spacing:0.3em; color:rgba(0,212,255,0.6); }
+.role-badge { border:1px solid var(--cyan); padding:0.5rem 1.5rem; font-size:0.65rem; letter-spacing:0.25em; color:var(--cyan); }
+.code-input-wrap { display:flex; flex-direction:column; gap:0.5rem; width:100%; max-width:280px; }
+.code-lbl { font-size:0.6rem; letter-spacing:0.2em; color:rgba(0,212,255,0.5); text-align:left; }
+#room-input {
+  background:rgba(0,212,255,0.05); border:1px solid rgba(0,212,255,0.3);
+  color:white; font-family:'Share Tech Mono',monospace; font-size:1.4rem;
+  letter-spacing:0.3em; padding:0.8rem 1rem; text-align:center; width:100%; outline:none;
+}
+.connect-btn {
+  background:transparent; border:1px solid var(--cyan); color:var(--cyan);
+  font-family:'Share Tech Mono',monospace; font-size:0.85rem; letter-spacing:0.2em;
+  padding:0.9rem 2rem; cursor:pointer; width:100%; max-width:280px;
+}
+.skip-btn { background:transparent; border:none; color:rgba(255,255,255,0.2); font-family:'Share Tech Mono',monospace; font-size:0.6rem; letter-spacing:0.15em; cursor:pointer; text-decoration:underline; }
+
+/* FULLSCREEN VIDEO */
+#remote-video { position:fixed; inset:0; width:100%; height:100%; object-fit:cover; z-index:1; opacity:0; transition:opacity 0.6s; }
+#remote-video.active { opacity:1; }
+
+/* NO VIDEO BG */
+#no-video {
+  position:fixed; inset:0; z-index:1;
+  background:repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(0,212,255,0.02) 40px,rgba(0,212,255,0.02) 41px),
+             repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(0,212,255,0.02) 40px,rgba(0,212,255,0.02) 41px);
+  display:flex; align-items:center; justify-content:center;
+}
+.no-video-text { font-size:0.6rem; letter-spacing:0.3em; color:rgba(0,212,255,0.2); text-align:center; }
+
+/* CANVAS for body detection + obstacle drawing */
+#body-canvas { position:fixed; inset:0; width:100%; height:100%; z-index:2; pointer-events:none; }
+
+/* SCANLINES */
+.scanlines {
+  position:fixed; inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.05) 2px,rgba(0,0,0,0.05) 4px);
+  pointer-events:none; z-index:3;
+}
+.vignette {
+  position:fixed; inset:0;
+  background:radial-gradient(ellipse at center,transparent 50%,rgba(5,8,16,0.6) 100%);
+  pointer-events:none; z-index:4;
+}
+
+/* HUD TOP */
+#hud-top {
+  position:fixed; top:0; left:0; right:0; z-index:10;
+  padding:0.6rem 1rem; display:flex; justify-content:space-between; align-items:center;
+  background:linear-gradient(to bottom,rgba(5,8,16,0.85),transparent);
+}
+.hud-title { font-family:'Rajdhani',sans-serif; font-size:0.9rem; font-weight:700; letter-spacing:0.2em; color:var(--cyan); }
+.hud-right { display:flex; align-items:center; gap:0.8rem; }
+#level-badge { font-size:0.55rem; letter-spacing:0.15em; color:var(--cyan); border:1px solid rgba(0,212,255,0.3); padding:0.2rem 0.5rem; }
+.hud-status { font-size:0.55rem; letter-spacing:0.12em; color:rgba(255,255,255,0.4); display:flex; align-items:center; gap:0.4rem; }
+.dot { width:5px; height:5px; border-radius:50%; background:var(--cyan); animation:pulse 2s infinite; }
+.dot.live { background:var(--success); box-shadow:0 0 5px var(--success); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* PROGRESS */
+#progress-bar { position:fixed; top:0; left:0; right:0; height:3px; z-index:15; background:rgba(0,212,255,0.15); }
+#progress-fill { height:100%; background:var(--cyan); transition:width 0.6s; box-shadow:0 0 8px var(--cyan); }
+
+/* TUTORIAL CARD */
+#cmd-card {
+  position:fixed; left:50%; transform:translateX(-50%);
+  top:12%; z-index:12; pointer-events:none;
+  background:rgba(5,8,16,0.88); border:1px solid var(--cyan);
+  padding:1rem 1.5rem; text-align:center; min-width:200px; max-width:280px;
+  opacity:0; transition:opacity 0.3s;
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+}
+#cmd-card.visible { opacity:1; }
+#cmd-card-name { font-family:'Rajdhani',sans-serif; font-size:1.8rem; font-weight:700; letter-spacing:0.2em; margin-bottom:0.3rem; }
+#cmd-card-desc { font-size:0.6rem; letter-spacing:0.1em; color:rgba(255,255,255,0.5); line-height:1.6; margin-bottom:0.5rem; white-space:pre-line; }
+#cmd-card-hint { font-size:0.55rem; letter-spacing:0.2em; color:var(--cyan); animation:blink 1.2s infinite; }
+@keyframes blink { 0%,100%{opacity:0.8} 50%{opacity:0.2} }
+
+/* CMD FLASH */
+#cmd-flash {
+  position:fixed; top:45%; left:50%; transform:translate(-50%,-50%);
+  z-index:13; pointer-events:none; font-family:'Rajdhani',sans-serif;
+  font-size:clamp(2rem,10vw,4rem); font-weight:700; letter-spacing:0.1em;
+  color:white; text-align:center; white-space:nowrap; opacity:0;
+}
+#cmd-flash.flash { animation:cmd-anim 0.9s ease forwards; }
+@keyframes cmd-anim { 0%{opacity:1;transform:translate(-50%,-50%) scale(1.1)} 30%{opacity:1;transform:translate(-50%,-50%) scale(1)} 100%{opacity:0;transform:translate(-50%,-50%) scale(0.95)} }
+
+/* UNLOCK MSG */
+#unlock-msg {
+  position:fixed; top:18%; left:50%; transform:translateX(-50%);
+  z-index:20; pointer-events:none; text-align:center;
+  font-family:'Rajdhani',sans-serif; font-size:1.1rem; font-weight:700; letter-spacing:0.2em;
+  opacity:0;
+}
+#unlock-msg.show { animation:unlock-anim 1.5s ease forwards; }
+@keyframes unlock-anim { 0%{opacity:0;transform:translateX(-50%) translateY(8px)} 20%{opacity:1;transform:translateX(-50%) translateY(0)} 70%{opacity:1} 100%{opacity:0;transform:translateX(-50%) translateY(-8px)} }
+
+/* TONE BAR */
+#tone-bar { position:fixed; bottom:0; left:0; right:0; height:3px; z-index:15; background:var(--cyan); transform:scaleX(0); transform-origin:left; transition:transform 0.1s; }
+#tone-bar.active { transform:scaleX(1); }
+
+/* CONTROLS — FULLSCREEN OVERLAY, TRANSPARENT */
+#controls {
+  position:fixed; inset:0; z-index:10; pointer-events:none;
+  display:flex; align-items:flex-end; justify-content:space-between;
+  padding:0 1rem 1.5rem;
+}
+#controls > * { pointer-events:all; }
+
+.dpad { display:grid; grid-template-columns:repeat(3,52px); grid-template-rows:repeat(3,52px); gap:3px; }
+.dpad-btn {
+  background:rgba(5,8,16,0.55); border:1px solid rgba(0,212,255,0.2); color:rgba(255,255,255,0.35);
+  cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:1px; border-radius:6px; font-family:'Rajdhani',sans-serif; font-size:0.65rem; font-weight:600;
+  text-transform:uppercase; transition:all 0.2s; -webkit-tap-highlight-color:transparent; user-select:none;
+  backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+}
+.dpad-btn .arrow { font-size:1rem; line-height:1; }
+.dpad-btn.locked { opacity:0.25; pointer-events:none; }
+.dpad-btn.unlocked { border-color:rgba(0,212,255,0.45); color:white; }
+.dpad-btn.unlocked:active, .dpad-btn.unlocked.holding {
+  background:var(--cyan-dim); border-color:var(--cyan);
+  box-shadow:0 0 12px var(--cyan-glow); transform:scale(0.95);
+}
+.dpad-center { grid-column:2; grid-row:2; background:rgba(0,212,255,0.03); border-color:rgba(0,212,255,0.05); cursor:default; pointer-events:none; }
+.dpad-btn.empty { background:transparent; border:none; pointer-events:none; }
+.dpad-btn.just-unlocked { animation:btn-unlock 0.6s ease forwards; }
+@keyframes btn-unlock { 0%{box-shadow:none} 50%{box-shadow:0 0 20px var(--cyan),0 0 40px var(--cyan-glow)} 100%{box-shadow:none} }
+
+.action-grid { display:grid; grid-template-columns:repeat(2,58px); grid-template-rows:repeat(2,58px); gap:6px; }
+.action-btn {
+  border-radius:50%; background:rgba(5,8,16,0.55); border:1px solid rgba(255,255,255,0.1);
+  color:rgba(255,255,255,0.3); cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+  font-family:'Rajdhani',sans-serif; font-size:0.6rem; font-weight:600; text-transform:uppercase;
+  transition:all 0.2s; -webkit-tap-highlight-color:transparent; user-select:none;
+  backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+}
+.action-btn .icon { font-size:1.1rem; line-height:1; }
+.action-btn.locked { opacity:0.25; pointer-events:none; }
+.action-btn.unlocked { border-width:1.5px; }
+.action-btn.salta.unlocked { border-color:rgba(0,255,136,0.5); color:var(--success); }
+.action-btn.agachate.unlocked { border-color:rgba(255,184,0,0.5); color:var(--orange); }
+.action-btn.rodar.unlocked { border-color:rgba(170,136,255,0.5); color:var(--purple); }
+.action-btn.stop.unlocked { border-color:rgba(255,51,102,0.5); color:var(--danger); }
+.action-btn.unlocked:active { transform:scale(0.93); }
+.action-btn.salta.unlocked:active { background:rgba(0,255,136,0.12); }
+.action-btn.agachate.unlocked:active { background:rgba(255,184,0,0.12); }
+.action-btn.rodar.unlocked:active { background:rgba(170,136,255,0.12); }
+.action-btn.stop.unlocked:active { background:rgba(255,51,102,0.12); }
+.action-btn.just-unlocked { animation:btn-unlock 0.6s ease forwards; }
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup-screen">
+  <div class="title">AGENCIAS</div>
+  <div class="subtitle">NIVEL 01 — TUTORIAL</div>
+  <div class="role-badge">DISPOSITIVO: CONTROLADOR</div>
+  <div class="code-input-wrap">
+    <div class="code-lbl">CÓDIGO DE SALA (de la cámara)</div>
+    <input id="room-input" type="text" maxlength="5" placeholder="xxxxx"
+      autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"/>
+  </div>
+  <button class="connect-btn" onclick="connectToCamera()">▶ INICIAR NIVEL 01</button>
+  <button class="skip-btn" onclick="skipCamera()">continuar sin cámara</button>
+</div>
+
+<!-- FULLSCREEN VIDEO -->
+<video id="remote-video" autoplay playsinline></video>
+<div id="no-video"><div class="no-video-text">ESPERANDO CÁMARA</div></div>
+
+<!-- BODY DETECTION CANVAS -->
+<canvas id="body-canvas"></canvas>
+
+<div class="scanlines"></div>
+<div class="vignette"></div>
+<div id="progress-bar"><div id="progress-fill" style="width:0%"></div></div>
+<div id="tone-bar"></div>
+
+<!-- HUD -->
+<div id="hud-top">
+  <div class="hud-title">AGENCIAS</div>
+  <div class="hud-right">
+    <div id="level-badge">NIVEL 01</div>
+    <div class="hud-status">
+      <div class="dot" id="conn-dot"></div>
+      <span id="conn-text">DESCONECTADO</span>
+    </div>
+  </div>
+</div>
+
+<!-- TUTORIAL CARD -->
+<div id="cmd-card">
+  <div id="cmd-card-name"></div>
+  <div id="cmd-card-desc"></div>
+  <div id="cmd-card-hint"></div>
+</div>
+
+<div id="cmd-flash"></div>
+<div id="unlock-msg"></div>
+
+<!-- CONTROLS OVERLAY -->
+<div id="controls">
+  <div class="dpad">
+    <div class="dpad-btn empty"></div>
+    <button class="dpad-btn locked" id="btn-avanza"
+      ontouchstart="useCmd('AVANZA',this)" ontouchend="stopHold()"
+      onmousedown="useCmd('AVANZA',this)" onmouseup="stopHold()">
+      <span class="arrow">↑</span><span>AVANZA</span>
+    </button>
+    <div class="dpad-btn empty"></div>
+    <button class="dpad-btn locked" id="btn-izq"
+      ontouchstart="useCmd('GIRA IZQ',this)" ontouchend="stopHold()"
+      onmousedown="useCmd('GIRA IZQ',this)" onmouseup="stopHold()">
+      <span class="arrow">←</span><span>IZQ</span>
+    </button>
+    <div class="dpad-btn dpad-center"><span style="font-size:0.45rem;color:rgba(0,212,255,0.2)">AGS</span></div>
+    <button class="dpad-btn locked" id="btn-der"
+      ontouchstart="useCmd('GIRA DER',this)" ontouchend="stopHold()"
+      onmousedown="useCmd('GIRA DER',this)" onmouseup="stopHold()">
+      <span class="arrow">→</span><span>DER</span>
+    </button>
+    <div class="dpad-btn empty"></div>
+    <button class="dpad-btn locked" id="btn-retro"
+      ontouchstart="useCmd('RETROCEDE',this)" ontouchend="stopHold()"
+      onmousedown="useCmd('RETROCEDE',this)" onmouseup="stopHold()">
+      <span class="arrow">↓</span><span>RETRO</span>
+    </button>
+    <div class="dpad-btn empty"></div>
+  </div>
+  <div class="action-grid">
+    <button class="action-btn salta locked" id="btn-salta"
+      ontouchstart="useCmd('SALTA',this)" onmousedown="useCmd('SALTA',this)">
+      <span class="icon">⬆</span><span>SALTA</span>
+    </button>
+    <button class="action-btn agachate locked" id="btn-agachate"
+      ontouchstart="useCmd('AGÁCHATE',this)" onmousedown="useCmd('AGÁCHATE',this)">
+      <span class="icon">⬇</span><span>AGÁCHATE</span>
+    </button>
+    <button class="action-btn rodar locked" id="btn-rodar"
+      ontouchstart="useCmd('RODAR',this)" onmousedown="useCmd('RODAR',this)">
+      <span class="icon">↺</span><span>RODAR</span>
+    </button>
+    <button class="action-btn stop locked" id="btn-stop"
+      ontouchstart="useCmd('STOP',this)" onmousedown="useCmd('STOP',this)">
+      <span class="icon">■</span><span>STOP</span>
+    </button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════
+// TUTORIAL COMMANDS
+// ═══════════════════════════════
+const COMMANDS = [
+  { id:'AVANZA', btnId:'btn-avanza', color:'#00D4FF',
+    anim:'→', desc:'El performer avanza hacia adelante.\nMantén presionado para continuar.',
+    scenario:{ instruction:'Lleva al performer hacia el fondo del espacio', obstacleType:'zone_far' }},
+  { id:'RETROCEDE', btnId:'btn-retro', color:'#00D4FF',
+    anim:'←', desc:'El performer retrocede.\nMantén presionado para continuar.',
+    scenario:{ instruction:'Regresa al performer al punto de inicio', obstacleType:'zone_near' }},
+  { id:'GIRA IZQ', btnId:'btn-izq', color:'#00D4FF',
+    anim:'↺', desc:'El performer gira a la izquierda.\nUn toque para girar.',
+    scenario:{ instruction:'Orienta al performer hacia la pared izquierda', obstacleType:'zone_left' }},
+  { id:'GIRA DER', btnId:'btn-der', color:'#00D4FF',
+    anim:'↻', desc:'El performer gira a la derecha.\nUn toque para girar.',
+    scenario:{ instruction:'Orienta al performer hacia la pared derecha', obstacleType:'zone_right' }},
+  { id:'SALTA', btnId:'btn-salta', color:'#00FF88',
+    anim:'⬆', desc:'El performer salta.\nUso: superar obstáculos en el piso.',
+    scenario:{ instruction:'Hay una línea en el piso — el performer no puede pisarla', obstacleType:'line_floor' }},
+  { id:'AGÁCHATE', btnId:'btn-agachate', color:'#FFB800',
+    anim:'⬇', desc:'El performer se agacha.\nUso: pasar bajo obstáculos altos.',
+    scenario:{ instruction:'Hay una barra a la altura del cuerpo — el performer debe agacharse', obstacleType:'bar_high' }},
+  { id:'RODAR', btnId:'btn-rodar', color:'#AA88FF',
+    anim:'↺', desc:'El performer rueda por el suelo.\nUso: atravesar espacios estrechos.',
+    scenario:{ instruction:'Hay dos pilares con un hueco estrecho — el performer debe rodar', obstacleType:'pillars' }},
+  { id:'STOP', btnId:'btn-stop', color:'#FF3366',
+    anim:'■', desc:'El performer se detiene.\nUso: emergencia o pausa total.',
+    scenario:{ instruction:'Detén al performer en cualquier momento', obstacleType:'none' }},
+];
+
+let currentStep = 0;
+let phase = 'intro'; // intro | scenario
+let cmdUsed = {};
+let tutorialActive = false;
+let holdInterval = null;
+let activeBtn = null;
+let dataConn = null, peer;
+
+// Body detection state
+let bodyPos = null; // {x, y, w, h} normalized 0-1
+let poseDetector = null;
+
+// Canvas
+const bodyCanvas = document.getElementById('body-canvas');
+const bctx = bodyCanvas.getContext('2d');
+
+function resizeCanvas() {
+  bodyCanvas.width = window.innerWidth;
+  bodyCanvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// ═══════════════════════════════
+// TENSORFLOW MOVENET POSE
+// ═══════════════════════════════
+const remoteVideo = document.getElementById('remote-video');
+
+async function initPose() {
+  try {
+    document.getElementById('conn-text').textContent = 'CARGANDO DETECCIÓN...';
+    const detector = await poseDetection.createDetector(
+      poseDetection.SupportedModels.MoveNet,
+      { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+    );
+    poseDetector = detector;
+    document.getElementById('conn-text').textContent = 'EN VIVO';
+    console.log('MoveNet loaded OK');
+    detectLoop();
+  } catch(e) {
+    console.error('Pose init failed:', e);
+    document.getElementById('conn-text').textContent = 'EN VIVO';
+  }
+}
+
+async function detectLoop() {
+  if (remoteVideo.readyState >= 2 && poseDetector) {
+    try {
+      const poses = await poseDetector.estimatePoses(remoteVideo);
+      if (poses && poses.length > 0) {
+        onPoseResults(poses[0]);
+      } else {
+        bodyPos = null;
+      }
+    } catch(e) {}
+  }
+  setTimeout(detectLoop, 100);
+}
+
+function onPoseResults(pose) {
+  if (!pose || !pose.keypoints || pose.keypoints.length < 17) { bodyPos = null; return; }
+  const kp = pose.keypoints;
+  const W = remoteVideo.videoWidth || bodyCanvas.width;
+  const H = remoteVideo.videoHeight || bodyCanvas.height;
+  const norm = kp.map(k => ({ x: k.x / W, y: k.y / H, score: k.score || 0 }));
+  const valid = norm.filter(k => k.score > 0.3);
+  if (valid.length < 3) { bodyPos = null; return; }
+  const xs = valid.map(k => k.x), ys = valid.map(k => k.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  // MoveNet: 0=nose, 5=leftShoulder, 6=rightShoulder, 11=leftHip, 12=rightHip, 15=leftAnkle, 16=rightAnkle
+  bodyPos = {
+    cx: (minX+maxX)/2, cy: (minY+maxY)/2,
+    x: minX, y: minY, w: maxX-minX, h: maxY-minY,
+    nose: norm[0], leftShoulder: norm[5], rightShoulder: norm[6],
+    leftHip: norm[11], rightHip: norm[12],
+    leftAnkle: norm[15], rightAnkle: norm[16]
+  };
+  drawObstacles();
+  checkBodyCompletion();
+}
+
+// ═══════════════════════════════
+// DRAW OBSTACLES ON CANVAS
+// ═══════════════════════════════
+let currentObstacleType = null;
+let currentObstacleColor = '#00D4FF';
+
+// Fixed obstacle positions (normalized 0-1)
+const OBSTACLE_POSITIONS = {
+  line_floor:  { lineY: 0.78 },           // line Y fixed at 78% height
+  bar_high:    { barY: 0.28 },            // bar Y fixed at 28% height
+  pillars:     { gapCX: 0.5, gapW: 0.22 }, // gap centered, 22% wide
+  zone_far:    { x:0.2, y:0.08, w:0.6, h:0.2 },
+  zone_near:   { x:0.2, y:0.72, w:0.6, h:0.2 },
+  zone_left:   { x:0.02, y:0.2, w:0.2, h:0.6 },
+  zone_right:  { x:0.78, y:0.2, w:0.2, h:0.6 },
+};
+
+// Completion state
+let completionFrames = 0;
+const COMPLETION_FRAMES_NEEDED = 8; // ~0.8s at 10fps
+let completionPending = false;
+
+function checkBodyCompletion() {
+  if (!bodyPos || phase !== 'scenario' || completionPending) return;
+  if (!currentObstacleType || currentObstacleType === 'none') return;
+
+  const cmd = COMMANDS[currentStep];
+  let completed = false;
+
+  if (currentObstacleType === 'line_floor') {
+    // SALTA: both ankles must be ABOVE the line (lower Y = higher on screen)
+    const lineY = OBSTACLE_POSITIONS.line_floor.lineY;
+    const leftAnkleY = bodyPos.leftAnkle.y;
+    const rightAnkleY = bodyPos.rightAnkle.y;
+    completed = leftAnkleY < lineY - 0.08 && rightAnkleY < lineY - 0.08;
+
+  } else if (currentObstacleType === 'bar_high') {
+    // AGÁCHATE: nose must be BELOW the bar (higher Y = lower on screen)
+    const barY = OBSTACLE_POSITIONS.bar_high.barY;
+    completed = bodyPos.nose.y > barY + 0.12;
+
+  } else if (currentObstacleType === 'pillars') {
+    // RODAR: body center X within gap AND shoulders low (rolling = low body)
+    const pos = OBSTACLE_POSITIONS.pillars;
+    const leftEdge = pos.gapCX - pos.gapW/2;
+    const rightEdge = pos.gapCX + pos.gapW/2;
+    const inGap = bodyPos.cx > leftEdge && bodyPos.cx < rightEdge;
+    const shoulderY = (bodyPos.leftShoulder.y + bodyPos.rightShoulder.y) / 2;
+    const bodyHeight = bodyPos.h;
+    const isLow = shoulderY > 0.55; // shoulders low = rolling/crouching
+    completed = inGap && isLow;
+
+  } else if (currentObstacleType.startsWith('zone_')) {
+    const z = OBSTACLE_POSITIONS[currentObstacleType];
+    if (z) {
+      completed = bodyPos.cx > z.x && bodyPos.cx < z.x + z.w &&
+                  bodyPos.cy > z.y && bodyPos.cy < z.y + z.h;
+    }
+  }
+
+  if (completed) {
+    completionFrames++;
+    // Show progress indicator
+    const pct = completionFrames / COMPLETION_FRAMES_NEEDED;
+    drawCompletionProgress(pct);
+    if (completionFrames >= COMPLETION_FRAMES_NEEDED) {
+      completionPending = true;
+      completionFrames = 0;
+      completeScenario(cmd);
+    }
+  } else {
+    if (completionFrames > 0) completionFrames = Math.max(0, completionFrames - 1);
+  }
+}
+
+function drawCompletionProgress(pct) {
+  // Draw a small progress arc near center to show body is in position
+  const W = bodyCanvas.width, H = bodyCanvas.height;
+  const cx = W/2, cy = H * 0.5;
+  const r = 24;
+  bctx.save();
+  bctx.globalAlpha = 0.9;
+  bctx.strokeStyle = currentObstacleColor;
+  bctx.lineWidth = 3;
+  bctx.shadowColor = currentObstacleColor;
+  bctx.shadowBlur = 8;
+  bctx.beginPath();
+  bctx.arc(cx, cy, r, -Math.PI/2, -Math.PI/2 + pct * Math.PI * 2);
+  bctx.stroke();
+  bctx.shadowBlur = 0;
+  bctx.globalAlpha = 0.5;
+  bctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  bctx.lineWidth = 1;
+  bctx.beginPath();
+  bctx.arc(cx, cy, r, 0, Math.PI*2);
+  bctx.stroke();
+  bctx.restore();
+}
+
+function toScreen(nx, ny) {
+  return { x: nx * bodyCanvas.width, y: ny * bodyCanvas.height };
+}
+
+function drawObstacles() {
+  bctx.clearRect(0, 0, bodyCanvas.width, bodyCanvas.height);
+  if (!currentObstacleType || currentObstacleType === 'none') return;
+
+  const W = bodyCanvas.width;
+  const H = bodyCanvas.height;
+  const color = currentObstacleColor;
+  const t = Date.now() / 1000;
+  const pulse = 0.5 + Math.sin(t * 3) * 0.3;
+
+  bctx.save();
+
+  if (currentObstacleType === 'zone_far' || currentObstacleType === 'zone_near' ||
+      currentObstacleType === 'zone_left' || currentObstacleType === 'zone_right') {
+    const z = OBSTACLE_POSITIONS[currentObstacleType];
+    const zx = z.x*W, zy = z.y*H, zw = z.w*W, zh = z.h*H;
+    bctx.strokeStyle = color; bctx.lineWidth = 2;
+    bctx.globalAlpha = 0.5 + pulse * 0.3; bctx.setLineDash([8,4]);
+    bctx.strokeRect(zx, zy, zw, zh);
+    bctx.globalAlpha = 0.08 + pulse * 0.05;
+    bctx.fillStyle = color; bctx.fillRect(zx, zy, zw, zh);
+    bctx.globalAlpha = 0.7; bctx.fillStyle = color;
+    bctx.font = '11px Share Tech Mono'; bctx.textAlign = 'center'; bctx.setLineDash([]);
+    bctx.fillText('ZONA OBJETIVO', zx + zw/2, zy + zh/2 + 4);
+
+    // Show body center dot for feedback
+    if (bodyPos) {
+      const bx = bodyPos.cx * W, by = bodyPos.cy * H;
+      bctx.globalAlpha = 0.6;
+      bctx.strokeStyle = color; bctx.lineWidth = 2; bctx.setLineDash([]);
+      bctx.beginPath(); bctx.arc(bx, by, 6, 0, Math.PI*2); bctx.stroke();
+    }
+
+  } else if (currentObstacleType === 'line_floor') {
+    const lineY = OBSTACLE_POSITIONS.line_floor.lineY * H;
+    const grad = bctx.createLinearGradient(0, lineY, W, lineY);
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(0.08, color);
+    grad.addColorStop(0.92, color);
+    grad.addColorStop(1, 'transparent');
+    bctx.strokeStyle = grad; bctx.lineWidth = 4;
+    bctx.globalAlpha = 0.6 + pulse * 0.3; bctx.setLineDash([]);
+    bctx.shadowColor = color; bctx.shadowBlur = 15;
+    bctx.beginPath(); bctx.moveTo(0, lineY); bctx.lineTo(W, lineY); bctx.stroke();
+    // Glow fill below
+    bctx.shadowBlur = 0;
+    bctx.globalAlpha = 0.08 + pulse * 0.05;
+    bctx.fillStyle = color;
+    bctx.fillRect(0, lineY, W, H - lineY);
+    bctx.globalAlpha = 0.8; bctx.fillStyle = color;
+    bctx.font = '11px Share Tech Mono'; bctx.textAlign = 'right';
+    bctx.fillText('⬆ SALTAR', W - 12, lineY - 8);
+
+    // Show ankle positions
+    if (bodyPos) {
+      [bodyPos.leftAnkle, bodyPos.rightAnkle].forEach(ankle => {
+        const ax = ankle.x * W, ay = ankle.y * H;
+        bctx.globalAlpha = ankle.y < OBSTACLE_POSITIONS.line_floor.lineY - 0.08 ? 0.9 : 0.4;
+        bctx.strokeStyle = ankle.y < OBSTACLE_POSITIONS.line_floor.lineY - 0.08 ? '#00FF88' : color;
+        bctx.lineWidth = 2;
+        bctx.beginPath(); bctx.arc(ax, ay, 7, 0, Math.PI*2); bctx.stroke();
+      });
+    }
+
+  } else if (currentObstacleType === 'bar_high') {
+    const barY = OBSTACLE_POSITIONS.bar_high.barY * H;
+    bctx.fillStyle = color; bctx.globalAlpha = 0.12 + pulse * 0.08;
+    bctx.fillRect(0, 0, W, barY);
+    const grad = bctx.createLinearGradient(0, barY, W, barY);
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(0.05, color);
+    grad.addColorStop(0.95, color);
+    grad.addColorStop(1, 'transparent');
+    bctx.strokeStyle = grad; bctx.lineWidth = 5;
+    bctx.globalAlpha = 0.7 + pulse * 0.2; bctx.setLineDash([]);
+    bctx.shadowColor = color; bctx.shadowBlur = 18;
+    bctx.beginPath(); bctx.moveTo(0, barY); bctx.lineTo(W, barY); bctx.stroke();
+    bctx.shadowBlur = 0;
+    bctx.globalAlpha = 0.8; bctx.fillStyle = color;
+    bctx.font = '11px Share Tech Mono'; bctx.textAlign = 'right';
+    bctx.fillText('⬇ AGACHARSE', W - 12, barY + 18);
+
+    // Show nose position
+    if (bodyPos) {
+      const nx = bodyPos.nose.x * W, ny = bodyPos.nose.y * H;
+      const passed = bodyPos.nose.y > OBSTACLE_POSITIONS.bar_high.barY + 0.12;
+      bctx.globalAlpha = 0.8;
+      bctx.strokeStyle = passed ? '#00FF88' : color;
+      bctx.lineWidth = 2;
+      bctx.beginPath(); bctx.arc(nx, ny, 7, 0, Math.PI*2); bctx.stroke();
+    }
+
+  } else if (currentObstacleType === 'pillars') {
+    const pos = OBSTACLE_POSITIONS.pillars;
+    const gapCX = pos.gapCX * W;
+    const gapW = pos.gapW * W;
+    const leftEdge = gapCX - gapW/2;
+    const rightEdge = gapCX + gapW/2;
+    const pillarTop = H * 0.1;
+    const pillarBot = H * 0.9;
+
+    bctx.fillStyle = color; bctx.globalAlpha = 0.06 + pulse * 0.04;
+    bctx.fillRect(0, pillarTop, leftEdge, pillarBot - pillarTop);
+    bctx.fillRect(rightEdge, pillarTop, W - rightEdge, pillarBot - pillarTop);
+
+    bctx.strokeStyle = color; bctx.lineWidth = 3;
+    bctx.globalAlpha = 0.7 + pulse * 0.2;
+    bctx.shadowColor = color; bctx.shadowBlur = 12;
+    bctx.setLineDash([]);
+    bctx.beginPath(); bctx.moveTo(leftEdge, pillarTop); bctx.lineTo(leftEdge, pillarBot); bctx.stroke();
+    bctx.beginPath(); bctx.moveTo(rightEdge, pillarTop); bctx.lineTo(rightEdge, pillarBot); bctx.stroke();
+    bctx.shadowBlur = 0;
+    bctx.globalAlpha = 0.7; bctx.fillStyle = color;
+    bctx.font = '10px Share Tech Mono'; bctx.textAlign = 'center';
+    bctx.fillText('↺ RODAR', gapCX, pillarBot + 16);
+
+    // Show body center
+    if (bodyPos) {
+      const bx = bodyPos.cx * W, by = bodyPos.cy * H;
+      const inGap = bodyPos.cx > pos.gapCX - pos.gapW/2 && bodyPos.cx < pos.gapCX + pos.gapW/2;
+      const isLow = (bodyPos.leftShoulder.y + bodyPos.rightShoulder.y)/2 > 0.55;
+      bctx.globalAlpha = 0.8;
+      bctx.strokeStyle = (inGap && isLow) ? '#00FF88' : color;
+      bctx.lineWidth = 2;
+      bctx.beginPath(); bctx.arc(bx, by, 8, 0, Math.PI*2); bctx.stroke();
+    }
+  }
+
+  bctx.restore();
+}
+
+// Animation loop for obstacles
+function obstacleLoop() {
+  if (currentObstacleType && !bodyPos) drawObstacles(); // fallback without detection
+  requestAnimationFrame(obstacleLoop);
+}
+obstacleLoop();
+
+// ═══════════════════════════════
+// TUTORIAL LOGIC
+// ═══════════════════════════════
+function startTutorial() {
+  tutorialActive = true;
+  showStep(0);
+}
+
+function showStep(idx) {
+  if (idx >= COMMANDS.length) { completeTutorial(); return; }
+  currentStep = idx;
+  phase = 'intro';
+  currentObstacleType = null;
+  bctx.clearRect(0, 0, bodyCanvas.width, bodyCanvas.height);
+  const cmd = COMMANDS[idx];
+  const pct = (idx / COMMANDS.length) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  unlockButton(cmd.btnId);
+  showCard(cmd.id, cmd.color, cmd.anim, cmd.desc, '[ PRESIONA ' + cmd.id + ' ]');
+  setTimeout(() => speak(cmd.id), 300);
+}
+
+function showCard(name, color, anim, desc, hint) {
+  document.getElementById('cmd-card-name').textContent = name;
+  document.getElementById('cmd-card-name').style.color = color;
+  document.getElementById('cmd-card-desc').textContent = desc;
+  document.getElementById('cmd-card-hint').textContent = hint;
+  document.getElementById('cmd-card').style.borderColor = color;
+  document.getElementById('cmd-card').classList.add('visible');
+}
+
+function unlockButton(btnId) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.classList.remove('locked');
+  btn.classList.add('unlocked','just-unlocked');
+  setTimeout(() => btn.classList.remove('just-unlocked'), 600);
+  playSound('unlock');
+}
+
+function onCommandUsed(cmdId) {
+  const cmd = COMMANDS[currentStep];
+  if (!cmd || cmd.id !== cmdId) return;
+  if (cmdUsed[cmdId]) return;
+  cmdUsed[cmdId] = true;
+
+  if (phase === 'intro') {
+    document.getElementById('cmd-card').classList.remove('visible');
+    phase = 'scenario';
+    setTimeout(() => showScenario(cmd), 400);
+  }
+  // NOTE: scenario completion is ONLY via body detection — not via button
+  // completeScenario is only called from checkBodyCompletion
+}
+
+function showScenario(cmd) {
+  if (!cmd.scenario || cmd.scenario.obstacleType === 'none') {
+    // STOP has no body detection — complete after 2s hold
+    showCard('// ESCENARIO', cmd.color, '', cmd.scenario.instruction, '[ MANTÉN ' + cmd.id + ' PRESIONADO ]');
+    setTimeout(() => document.getElementById('cmd-card').classList.remove('visible'), 3000);
+    setTimeout(() => { if (phase === 'scenario') completeScenario(cmd); }, 3000);
+    return;
+  }
+  const s = cmd.scenario;
+  currentObstacleType = s.obstacleType;
+  currentObstacleColor = cmd.color;
+  completionFrames = 0;
+  completionPending = false;
+
+  // Check if camera/pose is available
+  const hasPose = poseDetector !== null;
+  const hintText = hasPose
+    ? '[ EL CUERPO COMPLETA EL NIVEL ]'
+    : '[ CONECTA LA CÁMARA PARA CONTINUAR ]';
+
+  showCard('// ESCENARIO', cmd.color, '', s.instruction, hintText);
+  setTimeout(() => document.getElementById('cmd-card').classList.remove('visible'), 3500);
+
+  delete cmdUsed[cmd.id];
+  setTimeout(() => { if (phase === 'scenario') showFlash(cmd.id, cmd.color); }, 3500);
+}
+
+function completeScenario(cmd) {
+  phase = 'free';
+  currentObstacleType = null;
+  bctx.clearRect(0, 0, bodyCanvas.width, bodyCanvas.height);
+  document.getElementById('cmd-card').classList.remove('visible');
+  playSound('scenario_complete');
+
+  const msg = document.getElementById('unlock-msg');
+  msg.textContent = '✓ ' + cmd.id + ' DESBLOQUEADO';
+  msg.style.color = cmd.color;
+  msg.classList.remove('show'); void msg.offsetWidth; msg.classList.add('show');
+  setTimeout(() => advanceStep(), 1800);
+}
+
+function advanceStep() {
+  document.getElementById('cmd-card').classList.remove('visible');
+  showStep(currentStep + 1);
+}
+
+function completeTutorial() {
+  tutorialActive = false;
+  currentObstacleType = null;
+  document.getElementById('progress-fill').style.width = '100%';
+  document.getElementById('cmd-card').classList.remove('visible');
+  const msg = document.getElementById('unlock-msg');
+  msg.textContent = '▶ NIVEL 01 COMPLETADO';
+  msg.style.color = '#00FF88';
+  msg.classList.remove('show'); void msg.offsetWidth; msg.classList.add('show');
+  playSound('scenario_complete');
+  setTimeout(() => playSound('scenario_complete'), 500);
+  document.getElementById('level-badge').textContent = 'NIVEL 01 ✓';
+  document.getElementById('level-badge').style.color = '#00FF88';
+}
+
+// ═══════════════════════════════
+// AUDIO
+// ═══════════════════════════════
+const synth = window.speechSynthesis;
+let voices = [];
+let toneCtx = null, toneNode = null, toneGain = null;
+
+function loadVoices() { voices = synth.getVoices(); }
+loadVoices();
+if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = loadVoices;
+
+function initAudio() { if (toneCtx) return; toneCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+function playSound(type) {
+  initAudio();
+  const g = toneCtx.createGain(); g.connect(toneCtx.destination);
+  if (type === 'unlock') {
+    [440,554,659].forEach((f,i) => {
+      const o = toneCtx.createOscillator(); o.type='sine'; o.frequency.value=f;
+      const og = toneCtx.createGain(); og.connect(toneCtx.destination);
+      og.gain.setValueAtTime(0,toneCtx.currentTime+i*0.1);
+      og.gain.linearRampToValueAtTime(0.25,toneCtx.currentTime+i*0.1+0.05);
+      og.gain.exponentialRampToValueAtTime(0.01,toneCtx.currentTime+i*0.1+0.25);
+      o.connect(og); o.start(toneCtx.currentTime+i*0.1); o.stop(toneCtx.currentTime+i*0.1+0.25);
+    });
+  } else if (type === 'scenario_complete') {
+    [523,659,784,1047].forEach((f,i) => {
+      const o = toneCtx.createOscillator(); o.type='sine'; o.frequency.value=f;
+      const og = toneCtx.createGain(); og.connect(toneCtx.destination);
+      og.gain.setValueAtTime(0,toneCtx.currentTime+i*0.12);
+      og.gain.linearRampToValueAtTime(0.3,toneCtx.currentTime+i*0.12+0.06);
+      og.gain.exponentialRampToValueAtTime(0.01,toneCtx.currentTime+i*0.12+0.3);
+      o.connect(og); o.start(toneCtx.currentTime+i*0.12); o.stop(toneCtx.currentTime+i*0.12+0.3);
+    });
+  } else if (type === 'poing') {
+    const o = toneCtx.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(300,toneCtx.currentTime); o.frequency.exponentialRampToValueAtTime(800,toneCtx.currentTime+0.15);
+    g.gain.setValueAtTime(0.4,toneCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01,toneCtx.currentTime+0.3);
+    o.connect(g); o.start(); o.stop(toneCtx.currentTime+0.3);
+  } else if (type === 'tick') {
+    const o = toneCtx.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(400,toneCtx.currentTime); o.frequency.exponentialRampToValueAtTime(120,toneCtx.currentTime+0.12);
+    g.gain.setValueAtTime(0.35,toneCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01,toneCtx.currentTime+0.2);
+    o.connect(g); o.start(); o.stop(toneCtx.currentTime+0.2);
+  } else if (type === 'roll') {
+    const buf = toneCtx.createBuffer(1,toneCtx.sampleRate*0.3,toneCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);
+    const s = toneCtx.createBufferSource(); s.buffer=buf;
+    g.gain.setValueAtTime(0.4,toneCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01,toneCtx.currentTime+0.3);
+    s.connect(g); s.start();
+  } else if (type === 'stop') {
+    const o = toneCtx.createOscillator(); o.type='square'; o.frequency.value=200;
+    g.gain.setValueAtTime(0.3,toneCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01,toneCtx.currentTime+0.08);
+    o.connect(g); o.start(); o.stop(toneCtx.currentTime+0.08);
+  } else if (type === 'click') {
+    const o = toneCtx.createOscillator(); o.type='sine'; o.frequency.value=600;
+    g.gain.setValueAtTime(0.2,toneCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01,toneCtx.currentTime+0.06);
+    o.connect(g); o.start(); o.stop(toneCtx.currentTime+0.06);
+  }
+}
+
+function startTone(freq=80) {
+  initAudio(); if (toneNode) return;
+  toneGain = toneCtx.createGain();
+  toneGain.gain.setValueAtTime(0,toneCtx.currentTime);
+  toneGain.gain.linearRampToValueAtTime(0.3,toneCtx.currentTime+0.1);
+  toneNode = toneCtx.createOscillator();
+  toneNode.type='sine'; toneNode.frequency.value=freq;
+  toneNode.connect(toneGain); toneGain.connect(toneCtx.destination); toneNode.start();
+  document.getElementById('tone-bar').classList.add('active');
+}
+
+function stopTone() {
+  if (!toneNode) return;
+  toneGain.gain.linearRampToValueAtTime(0,toneCtx.currentTime+0.15);
+  setTimeout(()=>{ if(toneNode){toneNode.stop();toneNode=null;toneGain=null;} },200);
+  document.getElementById('tone-bar').classList.remove('active');
+}
+
+function speak(text) {
+  synth.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang='es-ES'; u.rate=0.85; u.pitch=0.9; u.volume=1;
+  const v = voices.find(v=>v.lang.startsWith('es')&&v.name.includes('Google'))||voices.find(v=>v.lang.startsWith('es'));
+  if (v) u.voice=v; synth.speak(u);
+}
+
+function showFlash(text, color='#00D4FF') {
+  const el = document.getElementById('cmd-flash');
+  el.textContent=text; el.style.color=color;
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+}
+
+function sendCommand(text, sound, color) {
+  if (dataConn && dataConn.open) dataConn.send(JSON.stringify({text,sound,color}));
+}
+
+function useCmd(cmd, btn) {
+  initAudio();
+  const cmdDef = COMMANDS.find(c=>c.id===cmd); if (!cmdDef) return;
+  speak(cmd); showFlash(cmd, cmdDef.color);
+  let sound = null;
+  if (cmd==='AVANZA'||cmd==='RETROCEDE') {
+    startTone(cmd==='RETROCEDE'?120:80);
+    if (!activeBtn) {
+      activeBtn=btn; btn.classList.add('holding');
+      holdInterval=setInterval(()=>sendCommand(cmd,'tone_start',cmdDef.color),400);
+    }
+  } else if (cmd==='GIRA IZQ'||cmd==='GIRA DER') { playSound('click'); sound='click'; }
+  else if (cmd==='SALTA') { playSound('poing'); sound='poing'; }
+  else if (cmd==='AGÁCHATE') { playSound('tick'); sound='tick'; }
+  else if (cmd==='RODAR') { playSound('roll'); sound='roll'; }
+  else if (cmd==='STOP') { playSound('stop'); stopTone(); sound='stop'; }
+  sendCommand(cmd, sound, cmdDef.color);
+  onCommandUsed(cmd);
+}
+
+function stopHold() {
+  if (holdInterval) { clearInterval(holdInterval); holdInterval=null; }
+  if (activeBtn) { activeBtn.classList.remove('holding'); activeBtn=null; }
+  stopTone();
+}
+
+// ═══════════════════════════════
+// WEBRTC
+// ═══════════════════════════════
+function showRemoteStream(stream) {
+  if (document.getElementById('setup-screen').classList.contains('hidden')) return;
+  remoteVideo.srcObject=stream; remoteVideo.muted=false; remoteVideo.volume=0.8;
+  remoteVideo.play().catch(e=>console.error(e));
+  remoteVideo.classList.add('active');
+  document.getElementById('no-video').style.display='none';
+  document.getElementById('conn-dot').classList.add('live');
+  document.getElementById('conn-text').textContent='EN VIVO';
+  document.getElementById('setup-screen').classList.add('hidden');
+  setTimeout(()=>{ startTutorial(); initPose(); }, 1000);
+}
+
+function connectToCamera() {
+  const code = document.getElementById('room-input').value.trim().toLowerCase();
+  if (!code||code.length<3) { alert('Ingresa el código'); return; }
+  initAudio();
+  document.getElementById('conn-text').textContent='CONECTANDO...';
+  if (peer) { try{peer.destroy();}catch(e){} peer=null; }
+  peer = new Peer({ host:'0.peerjs.com', port:443, path:'/', secure:true, debug:1,
+    config:{iceServers:[
+      {urls:'stun:stun.l.google.com:19302'},
+      {urls:'stun:stun1.l.google.com:19302'},
+      {urls:'turn:a.relay.metered.ca:80',username:'53a9857b1f8305801b737ca3',credential:'UT9byJl/o7k4t9k6'},
+      {urls:'turn:a.relay.metered.ca:443',username:'53a9857b1f8305801b737ca3',credential:'UT9byJl/o7k4t9k6'},
+      {urls:'turn:a.relay.metered.ca:443?transport=tcp',username:'53a9857b1f8305801b737ca3',credential:'UT9byJl/o7k4t9k6'}
+    ]}
+  });
+  peer.on('open',()=>{
+    document.getElementById('conn-text').textContent='LLAMANDO...';
+    const dest=toneCtx.createMediaStreamDestination();
+    const aT=dest.stream.getAudioTracks()[0];
+    const cv=document.createElement('canvas'); cv.width=640; cv.height=480;
+    cv.getContext('2d').fillRect(0,0,640,480);
+    const vT=cv.captureStream(1).getVideoTracks()[0];
+    const silent=new MediaStream([aT,vT]);
+    const call=peer.call('agencias-cam-'+code,silent);
+    if (!call){document.getElementById('conn-text').textContent='ERROR';return;}
+    dataConn=peer.connect('agencias-cam-'+code,{reliable:true});
+    call.on('stream',s=>showRemoteStream(s));
+    setTimeout(()=>{
+      try{
+        if(call.peerConnection){
+          call.peerConnection.ontrack=e=>{if(e.track.kind==='video'&&e.streams[0])showRemoteStream(e.streams[0]);};
+          const vR=call.peerConnection.getReceivers().filter(r=>r.track&&r.track.kind==='video');
+          if(vR.length>0)showRemoteStream(new MediaStream(vR.map(r=>r.track)));
+        }
+      }catch(e){}
+    },1500);
+    setTimeout(()=>{if(!document.getElementById('setup-screen').classList.contains('hidden'))document.getElementById('conn-text').textContent='SIN RESPUESTA';},15000);
+  });
+  peer.on('error',e=>{document.getElementById('conn-text').textContent='ERROR: '+e.type;});
+}
+
+function skipCamera() {
+  initAudio();
+  document.getElementById('setup-screen').classList.add('hidden');
+  document.getElementById('conn-text').textContent='SIN CÁMARA';
+  setTimeout(()=>startTutorial(),500);
+}
+
+document.addEventListener('contextmenu',e=>e.preventDefault());
+document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault();},{passive:false});
+if('wakeLock'in navigator)navigator.wakeLock.request('screen').catch(()=>{});
+</script>
+</body>
+</html>
