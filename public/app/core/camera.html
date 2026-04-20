@@ -49,35 +49,25 @@ body {
   top:0; left:0; width:100%; height:100%; z-index: 5;
 }
 #local-video { width: 100%; height: 100%; object-fit: cover; }
-#status-overlay {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 20;
-  padding: 1rem 1.2rem; display: flex;
-  justify-content: space-between; align-items: center;
-  background: linear-gradient(to bottom, rgba(5,8,16,0.9), transparent);
+#conn-dot {
+  position: fixed; top: 1rem; right: 1rem; z-index: 20;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--cyan); animation: pulse 2s infinite;
 }
-.hud-title {
-  font-family: 'Rajdhani', sans-serif; font-size: 1rem;
-  font-weight: 700; letter-spacing: 0.2em; color: var(--cyan);
-}
-.status-pill {
-  display: flex; align-items: center; gap: 0.4rem;
-  font-size: 0.6rem; letter-spacing: 0.15em; color: rgba(255,255,255,0.5);
-}
-.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); animation: pulse 2s infinite; }
-.dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
+#conn-dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); animation: none; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 #code-display {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
-  padding: 1.5rem; background: linear-gradient(to top, rgba(5,8,16,0.95), transparent);
-  text-align: center;
+  padding: 2rem; text-align: center;
+  background: linear-gradient(to top, rgba(5,8,16,0.85), transparent);
+  transition: opacity .4s;
 }
-.code-label { font-size: 0.6rem; letter-spacing: 0.25em; color: rgba(0,212,255,0.5); margin-bottom: 0.5rem; }
+#code-display.hidden { opacity: 0; pointer-events: none; }
 .code-value {
-  font-family: 'Rajdhani', sans-serif; font-size: 2.5rem;
+  font-family: 'Rajdhani', sans-serif; font-size: 3rem;
   font-weight: 700; letter-spacing: 0.3em; color: white;
   text-shadow: 0 0 20px rgba(0,212,255,0.6);
 }
-.code-hint { font-size: 0.55rem; letter-spacing: 0.15em; color: rgba(255,255,255,0.25); margin-top: 0.5rem; }
 
 /* FASE 0 — Silhouette */
 #sil-overlay {
@@ -98,24 +88,6 @@ body {
   font-size: .6rem; letter-spacing: .2em; color: rgba(0,212,255,.6); white-space: nowrap;
 }
 
-/* Command flash for performer */
-#cmd-display {
-  position: fixed; top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 30; pointer-events: none;
-  font-family: 'Rajdhani', sans-serif;
-  font-size: clamp(3rem, 15vw, 7rem);
-  font-weight: 700; letter-spacing: 0.1em;
-  color: white; text-shadow: 0 0 30px var(--cyan), 0 0 60px rgba(0,212,255,0.4);
-  opacity: 0; text-align: center;
-}
-#cmd-display.flash { animation: cmd-anim 1.5s ease forwards; }
-@keyframes cmd-anim {
-  0% { opacity:1; transform:translate(-50%,-50%) scale(1.1); }
-  30% { opacity:1; transform:translate(-50%,-50%) scale(1); }
-  80% { opacity:0.8; }
-  100% { opacity:0; transform:translate(-50%,-50%) scale(0.95); }
-}
 </style>
 </head>
 <body>
@@ -149,21 +121,11 @@ body {
         <path   class="sl" d="M62 112 Q67 153 69 196" stroke="#00D4FF" stroke-width="1.5" stroke-dasharray="4 3"/>
       </svg>
     </div>
-    <div id="sil-hint">POSICIONATE DENTRO DE LA SILUETA</div>
   </div>
 
-  <div id="cmd-display"></div>
-  <div id="status-overlay">
-    <div class="hud-title">AGENCIAS</div>
-    <div class="status-pill">
-      <div class="dot" id="conn-dot"></div>
-      <span id="conn-text">ESPERANDO CONTROLADOR</span>
-    </div>
-  </div>
+  <div id="conn-dot"></div>
   <div id="code-display">
-    <div class="code-label">CÓDIGO DE SALA — COMPARTE CON EL CONTROLADOR</div>
     <div class="code-value" id="room-code">----</div>
-    <div class="code-hint">El controlador necesita este código para conectarse</div>
   </div>
 </div>
 
@@ -240,16 +202,6 @@ function speak(text) {
   synth.speak(utter);
 }
 
-function showCmdFlash(text, color = '#00D4FF') {
-  const el = document.getElementById('cmd-display');
-  el.textContent = text;
-  el.style.color = color;
-  el.style.textShadow = `0 0 30px ${color}, 0 0 60px ${color}40`;
-  el.classList.remove('flash');
-  void el.offsetWidth;
-  el.classList.add('flash');
-}
-
 /* ── FASE 0 — posicionamiento del performer ── */
 let setupFrames    = 0;
 let setupDone      = false;
@@ -297,15 +249,10 @@ function handleCommand(data) {
   initAudio();
   try {
     const cmd = JSON.parse(data);
-    console.log('Command received:', cmd);
-
-    if (cmd.text) {
-      speak(cmd.text);
-      showCmdFlash(cmd.text, cmd.color || '#00D4FF');
-    }
+    if (cmd.type === 'performer-ready') return; // ignorar mensajes de sistema
+    if (cmd.text) speak(cmd.text);
     if (cmd.sound) playSound(cmd.sound);
-
-  } catch(e) { console.error('Command parse error:', e); }
+  } catch(e) {}
 }
 
 async function startCamera() {
@@ -361,16 +308,12 @@ async function startCamera() {
       }
     });
 
-    peer.on('open', (id) => {
-      console.log('Camera peer ready:', id);
-      document.getElementById('conn-text').textContent = 'LISTO — ESPERANDO';
-    });
+    peer.on('open', () => {});
 
     peer.on('call', call => {
-      console.log('Incoming call, answering with tracks:', localStream.getTracks().map(t => t.kind));
       call.answer(localStream);
       document.getElementById('conn-dot').classList.add('connected');
-      document.getElementById('conn-text').textContent = 'CONTROLADOR CONECTADO';
+      document.getElementById('code-display').classList.add('hidden');
     });
 
     // Data channel for receiving commands
@@ -379,8 +322,6 @@ async function startCamera() {
       console.log('Data channel connected');
       conn.on('data', handleCommand);
       conn.on('open', () => {
-        console.log('Data channel open');
-        document.getElementById('conn-text').textContent = 'SISTEMA ACTIVO';
         if (pendingReady) {
           conn.send(JSON.stringify({ type: 'performer-ready' }));
           pendingReady = false;
@@ -388,10 +329,7 @@ async function startCamera() {
       });
     });
 
-    peer.on('error', e => {
-      console.error(e);
-      document.getElementById('conn-text').textContent = 'ERROR: ' + e.type;
-    });
+    peer.on('error', e => console.error(e));
 
   } catch(e) {
     alert('Error: ' + e.message);
