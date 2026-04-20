@@ -216,24 +216,36 @@ function startSilhouette() {
 
 function checkSilhouette(kp) {
   if (setupDone) return;
+
+  // Mínimo 7 de 7 keypoints con score > 0.6
+  const all = [kp.nose, kp.leftShoulder, kp.rightShoulder, kp.leftHip, kp.rightHip, kp.leftAnkle, kp.rightAnkle];
+  const validCount = all.filter(k => k.score > 0.6).length;
+  if (validCount < 7) { resetSil(); return; }
+
+  // Bounding box (nariz → tobillos) debe cubrir ≥ 40% del alto del frame
+  const topY    = kp.nose.y;
+  const bottomY = Math.max(kp.leftAnkle.y, kp.rightAnkle.y);
+  if (bottomY - topY < 0.4) { resetSil(); return; }
+
+  // Centro de caderas dentro del área central
   const cx = (kp.leftHip.x + kp.rightHip.x) / 2;
   const cy = (kp.leftHip.y + kp.rightHip.y) / 2;
-  const ok = cx > 0.25 && cx < 0.75 && cy > 0.25 && cy < 0.75;
+  if (cx < 0.25 || cx > 0.75 || cy < 0.25 || cy > 0.75) { resetSil(); return; }
 
-  if (ok) {
-    setupFrames++;
-    if (setupFrames === 1) document.getElementById('sil-wrap').classList.add('aligned');
-    if (setupFrames >= SETUP_FRAMES) {
-      setupDone = true;
-      stopBodyDetection();
-      document.getElementById('sil-wrap').style.opacity = '0';
-      setTimeout(() => document.getElementById('sil-overlay').classList.remove('active'), 500);
-      sendPerformerReady();
-    }
-  } else {
-    setupFrames = 0;
-    document.getElementById('sil-wrap').classList.remove('aligned');
+  setupFrames++;
+  if (setupFrames === 1) document.getElementById('sil-wrap').classList.add('aligned');
+  if (setupFrames >= SETUP_FRAMES) {
+    setupDone = true;
+    stopBodyDetection();
+    document.getElementById('sil-wrap').style.opacity = '0';
+    setTimeout(() => document.getElementById('sil-overlay').classList.remove('active'), 500);
+    sendPerformerReady();
   }
+}
+
+function resetSil() {
+  setupFrames = 0;
+  document.getElementById('sil-wrap').classList.remove('aligned');
 }
 
 function sendPerformerReady() {

@@ -388,37 +388,57 @@ function connect() {
     ]}
   });
 
-  peer.on('open', () => {
+  peer.on('open', id => {
+    console.log('[nivel-01] peer abierto, ID:', id);
     setStatus('LLAMANDO...');
+
+    // data channel
+    console.log('[nivel-01] conectando data channel a agencias-cam-' + code);
     dataConn = peer.connect('agencias-cam-' + code);
     dataConn.on('open', () => {
+      console.log('[nivel-01] data channel abierto');
       dataConn.on('data', onCameraData);
     });
+    dataConn.on('error', e => console.error('[nivel-01] data channel error:', e));
 
-    const call = peer.call('agencias-cam-' + code, new MediaStream());
+    // dummy stream con un frame de canvas para que PeerJS negocie correctamente
+    const canvas = document.createElement('canvas');
+    canvas.width = 2; canvas.height = 2;
+    canvas.getContext('2d').fillRect(0, 0, 2, 2);
+    const dummyStream = canvas.captureStream(1);
+    console.log('[nivel-01] llamando a agencias-cam-' + code);
+
+    const call = peer.call('agencias-cam-' + code, dummyStream);
+    if (!call) { console.error('[nivel-01] call es null'); setStatus('ERROR: sin llamada'); return; }
+
     call.on('stream', stream => {
+      console.log('[nivel-01] stream recibido, tracks:', stream.getTracks().map(t => t.kind));
       document.getElementById('performer-video').srcObject = stream;
       document.getElementById('connect-screen').style.display = 'none';
       document.getElementById('tutorial-screen').style.display = 'block';
       document.getElementById('waiting-overlay').classList.add('on');
 
-      // body-detection para la fase de tutorial (inicia ya, responde cuando haya comando activo)
       const video = document.getElementById('performer-video');
       initBodyDetection(video, kp => {
         if (!bdActive) { bdActive = true; document.getElementById('bd-dot').classList.add('active'); }
         onPose(kp);
       });
 
-      // botón manual si no llega performer-ready en 15s
       setTimeout(() => {
         if (currentIdx === -1)
           document.getElementById('waiting-manual').style.display = 'block';
       }, 15000);
     });
-    call.on('error', e => setStatus('ERROR: ' + e.message));
+
+    call.on('error', e => { console.error('[nivel-01] call error:', e); setStatus('ERROR: ' + e.message); });
+    call.on('close', () => console.log('[nivel-01] call cerrado'));
+    setTimeout(() => {
+      if (currentIdx === -1 && document.getElementById('connect-screen').style.display !== 'none')
+        console.warn('[nivel-01] sin stream después de 10s — revisar código de sala y que cámara esté activa');
+    }, 10000);
   });
 
-  peer.on('error', e => setStatus('ERROR: ' + e.type));
+  peer.on('error', e => { console.error('[nivel-01] peer error:', e.type, e); setStatus('ERROR: ' + e.type); });
 }
 
 function setStatus(t) { document.getElementById('connect-status').textContent = t; }
