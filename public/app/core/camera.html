@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>AGENCIAS — Cámara</title>
 <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@600;700&display=swap');
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -77,6 +79,25 @@ body {
 }
 .code-hint { font-size: 0.55rem; letter-spacing: 0.15em; color: rgba(255,255,255,0.25); margin-top: 0.5rem; }
 
+/* FASE 0 — Silhouette */
+#sil-overlay {
+  position: fixed; inset: 0; z-index: 25;
+  display: none; pointer-events: none;
+}
+#sil-overlay.active { display: block; }
+#sil-wrap {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -54%);
+  width: min(40vw, 190px);
+  transition: opacity .5s;
+}
+#sil-wrap svg { width: 100%; height: auto; }
+#sil-wrap.aligned .sl { stroke: var(--success) !important; transition: stroke .3s; }
+#sil-hint {
+  position: absolute; bottom: 14%; left: 50%; transform: translateX(-50%);
+  font-size: .6rem; letter-spacing: .2em; color: rgba(0,212,255,.6); white-space: nowrap;
+}
+
 /* Command flash for performer */
 #cmd-display {
   position: fixed; top: 50%; left: 50%;
@@ -114,6 +135,23 @@ body {
 
 <div id="camera-screen">
   <video id="local-video" autoplay playsinline muted></video>
+
+  <!-- FASE 0: silhouette overlay — solo visible para el performer -->
+  <div id="sil-overlay">
+    <div id="sil-wrap">
+      <svg viewBox="0 0 100 230" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle class="sl" cx="50" cy="18" r="13" stroke="#00D4FF" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <line   class="sl" x1="50" y1="31" x2="50" y2="45" stroke="#00D4FF" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <path   class="sl" d="M29 45 Q20 82 22 112 L78 112 Q80 82 71 45 Z" stroke="#00D4FF" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <path   class="sl" d="M29 51 Q10 76 14 103" stroke="#00D4FF" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <path   class="sl" d="M71 51 Q90 76 86 103" stroke="#00D4FF" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <path   class="sl" d="M38 112 Q33 153 31 196" stroke="#00D4FF" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <path   class="sl" d="M62 112 Q67 153 69 196" stroke="#00D4FF" stroke-width="1.5" stroke-dasharray="4 3"/>
+      </svg>
+    </div>
+    <div id="sil-hint">POSICIONATE DENTRO DE LA SILUETA</div>
+  </div>
+
   <div id="cmd-display"></div>
   <div id="status-overlay">
     <div class="hud-title">AGENCIAS</div>
@@ -129,6 +167,7 @@ body {
   </div>
 </div>
 
+<script src="./body-detection.js"></script>
 <script>
 let peer, localStream, dataChannel;
 const synth = window.speechSynthesis;
@@ -211,6 +250,49 @@ function showCmdFlash(text, color = '#00D4FF') {
   el.classList.add('flash');
 }
 
+/* ── FASE 0 — posicionamiento del performer ── */
+let setupFrames    = 0;
+let setupDone      = false;
+let pendingReady   = false;
+const SETUP_FRAMES = 8;
+
+function startSilhouette() {
+  document.getElementById('sil-overlay').classList.add('active');
+  const video = document.getElementById('local-video');
+  initBodyDetection(video, checkSilhouette);
+}
+
+function checkSilhouette(kp) {
+  if (setupDone) return;
+  const cx = (kp.leftHip.x + kp.rightHip.x) / 2;
+  const cy = (kp.leftHip.y + kp.rightHip.y) / 2;
+  const ok = cx > 0.25 && cx < 0.75 && cy > 0.25 && cy < 0.75;
+
+  if (ok) {
+    setupFrames++;
+    if (setupFrames === 1) document.getElementById('sil-wrap').classList.add('aligned');
+    if (setupFrames >= SETUP_FRAMES) {
+      setupDone = true;
+      stopBodyDetection();
+      document.getElementById('sil-wrap').style.opacity = '0';
+      setTimeout(() => document.getElementById('sil-overlay').classList.remove('active'), 500);
+      sendPerformerReady();
+    }
+  } else {
+    setupFrames = 0;
+    document.getElementById('sil-wrap').classList.remove('aligned');
+  }
+}
+
+function sendPerformerReady() {
+  const msg = JSON.stringify({ type: 'performer-ready' });
+  if (dataChannel && dataChannel.open) {
+    dataChannel.send(msg);
+  } else {
+    pendingReady = true;
+  }
+}
+
 function handleCommand(data) {
   initAudio();
   try {
@@ -260,6 +342,7 @@ async function startCamera() {
     document.getElementById('local-video').srcObject = videoStream;
     document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('camera-screen').style.display = 'block';
+    startSilhouette();
 
     const code = Math.random().toString(36).substring(2, 7).toLowerCase();
     document.getElementById('room-code').textContent = code;
@@ -298,6 +381,10 @@ async function startCamera() {
       conn.on('open', () => {
         console.log('Data channel open');
         document.getElementById('conn-text').textContent = 'SISTEMA ACTIVO';
+        if (pendingReady) {
+          conn.send(JSON.stringify({ type: 'performer-ready' }));
+          pendingReady = false;
+        }
       });
     });
 
