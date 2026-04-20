@@ -297,92 +297,102 @@ body {
 <script src="../core/body-detection.js"></script>
 <script>
 
-/* ── AUDIO ── */
 const synth = window.speechSynthesis;
 let voices = [];
-let audioCtx = null;
+let toneCtx = null;
+let toneNode = null;
+let toneGain = null;
 
 function loadVoices() { voices = synth.getVoices(); }
 loadVoices();
 if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = loadVoices;
 
 function initAudio() {
-  if (audioCtx) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  console.log('[audio nivel-01] AudioContext creado, state:', audioCtx.state);
+  if (toneCtx) return;
+  toneCtx = new (window.AudioContext || window.webkitAudioContext)();
 }
 
-function unlockAudio() {
+function startTone(freq = 80) {
   initAudio();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  // un utterance vacío y silencioso desbloquea speechSynthesis en móvil
-  const u = new SpeechSynthesisUtterance(' ');
-  u.volume = 0; u.rate = 10;
-  synth.speak(u);
-  console.log('[audio nivel-01] desbloqueado en gesto de usuario');
+  if (toneNode) return;
+  toneGain = toneCtx.createGain();
+  toneGain.gain.setValueAtTime(0, toneCtx.currentTime);
+  toneGain.gain.linearRampToValueAtTime(0.3, toneCtx.currentTime + 0.1);
+  toneNode = toneCtx.createOscillator();
+  toneNode.type = 'sine';
+  toneNode.frequency.value = freq;
+  toneNode.connect(toneGain);
+  toneGain.connect(toneCtx.destination);
+  toneNode.start();
 }
 
-function speak(text) {
-  console.log('[audio nivel-01] speak:', text, '| voices:', voices.length);
-  synth.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'es-ES'; u.rate = 0.85; u.pitch = 0.9; u.volume = 1;
-  const v = voices.find(v => v.lang.startsWith('es') && v.name.includes('Google'))
-         || voices.find(v => v.lang.startsWith('es'));
-  if (v) { u.voice = v; console.log('[audio nivel-01] voz:', v.name); }
-  else console.warn('[audio nivel-01] sin voz española, usando default');
-  synth.speak(u);
+function stopTone() {
+  if (!toneNode) return;
+  toneGain.gain.linearRampToValueAtTime(0, toneCtx.currentTime + 0.15);
+  setTimeout(() => {
+    if (toneNode) { toneNode.stop(); toneNode = null; toneGain = null; }
+  }, 200);
 }
 
 function playSound(type) {
-  console.log('[audio nivel-01] playSound:', type);
-  if (!audioCtx) { console.warn('[audio nivel-01] AudioContext no iniciado'); return; }
-  const g = audioCtx.createGain();
-  g.connect(audioCtx.destination);
+  initAudio();
+  const ctx = toneCtx;
+  const g = ctx.createGain();
+  g.connect(ctx.destination);
   if (type === 'poing') {
-    const o = audioCtx.createOscillator(); o.type = 'sine';
-    o.frequency.setValueAtTime(300, audioCtx.currentTime);
-    o.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.15);
-    g.gain.setValueAtTime(0.5, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-    o.connect(g); o.start(); o.stop(audioCtx.currentTime + 0.3);
+    const osc = ctx.createOscillator(); osc.type = 'sine';
+    osc.frequency.setValueAtTime(300, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.15);
+    g.gain.setValueAtTime(0.4, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+    osc.connect(g); osc.start(); osc.stop(ctx.currentTime + 0.3);
   } else if (type === 'tick') {
-    const o = audioCtx.createOscillator(); o.type = 'sine';
-    o.frequency.setValueAtTime(400, audioCtx.currentTime);
-    o.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.12);
-    g.gain.setValueAtTime(0.4, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-    o.connect(g); o.start(); o.stop(audioCtx.currentTime + 0.2);
+    const osc = ctx.createOscillator(); osc.type = 'sine';
+    osc.frequency.setValueAtTime(400, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.12);
+    g.gain.setValueAtTime(0.35, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+    osc.connect(g); osc.start(); osc.stop(ctx.currentTime + 0.2);
   } else if (type === 'roll') {
-    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.3, audioCtx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
-    const s = audioCtx.createBufferSource(); s.buffer = buf;
-    g.gain.setValueAtTime(0.5, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-    s.connect(g); s.start();
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.3, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i/data.length, 2);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    g.gain.setValueAtTime(0.4, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+    src.connect(g); src.start();
   } else if (type === 'stop') {
-    const o = audioCtx.createOscillator(); o.type = 'square';
-    o.frequency.value = 200;
-    g.gain.setValueAtTime(0.4, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
-    o.connect(g); o.start(); o.stop(audioCtx.currentTime + 0.08);
+    const osc = ctx.createOscillator(); osc.type = 'square';
+    osc.frequency.setValueAtTime(200, ctx.currentTime);
+    g.gain.setValueAtTime(0.3, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+    osc.connect(g); osc.start(); osc.stop(ctx.currentTime + 0.08);
   } else if (type === 'click') {
-    const o = audioCtx.createOscillator(); o.type = 'sine';
-    o.frequency.value = 600;
-    g.gain.setValueAtTime(0.25, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.06);
-    o.connect(g); o.start(); o.stop(audioCtx.currentTime + 0.06);
+    const osc = ctx.createOscillator(); osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, ctx.currentTime);
+    g.gain.setValueAtTime(0.2, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.06);
+    osc.connect(g); osc.start(); osc.stop(ctx.currentTime + 0.06);
   } else if (type === 'unlock') {
     [440, 554, 659].forEach((f, i) => {
-      const o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
-      const og = audioCtx.createGain(); og.connect(audioCtx.destination);
-      og.gain.setValueAtTime(0, audioCtx.currentTime + i * 0.1);
-      og.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + i * 0.1 + 0.05);
-      og.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.1 + 0.25);
-      o.connect(og); o.start(audioCtx.currentTime + i * 0.1); o.stop(audioCtx.currentTime + i * 0.1 + 0.25);
+      const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = f;
+      const og = ctx.createGain(); og.connect(ctx.destination);
+      og.gain.setValueAtTime(0, ctx.currentTime + i * 0.1);
+      og.gain.linearRampToValueAtTime(0.2, ctx.currentTime + i * 0.1 + 0.05);
+      og.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.1 + 0.25);
+      osc.connect(og); osc.start(ctx.currentTime + i * 0.1); osc.stop(ctx.currentTime + i * 0.1 + 0.25);
     });
   }
+}
+
+function speak(text) {
+  synth.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'es-ES'; utter.rate = 0.85; utter.pitch = 0.9; utter.volume = 1;
+  const v = voices.find(v => v.lang.startsWith('es') && v.name.includes('Google'))
+         || voices.find(v => v.lang.startsWith('es'));
+  if (v) utter.voice = v;
+  synth.speak(utter);
 }
 
 /* ── DEFINICIÓN DE COMANDOS ── */
@@ -460,7 +470,7 @@ let stopActive = false;
 
 /* ── CONNECT ── */
 function connect() {
-  unlockAudio(); // primer gesto del usuario — desbloquea AudioContext y speechSynthesis
+  initAudio();
   const code = document.getElementById('room-input').value.trim().toLowerCase();
   if (code.length < 3) return;
   setStatus('CONECTANDO...');
