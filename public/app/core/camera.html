@@ -193,12 +193,14 @@ function playSound(type) {
 }
 
 function speak(text) {
+  console.log('[audio camera] speak:', text, '| voices:', voices.length);
   synth.cancel();
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = 'es-ES'; utter.rate = 0.85; utter.pitch = 0.9; utter.volume = 1;
   const v = voices.find(v => v.lang.startsWith('es') && v.name.includes('Google'))
          || voices.find(v => v.lang.startsWith('es'));
-  if (v) utter.voice = v;
+  if (v) { utter.voice = v; console.log('[audio camera] voz:', v.name); }
+  else console.warn('[audio camera] sin voz española');
   synth.speak(utter);
 }
 
@@ -258,16 +260,26 @@ function sendPerformerReady() {
 }
 
 function handleCommand(data) {
+  console.log('[audio camera] handleCommand raw:', data);
   initAudio();
   try {
     const cmd = JSON.parse(data);
-    if (cmd.type === 'performer-ready') return; // ignorar mensajes de sistema
+    if (cmd.type === 'performer-ready') return;
+    console.log('[audio camera] ejecutando comando:', cmd.text, cmd.sound);
     if (cmd.text) speak(cmd.text);
     if (cmd.sound) playSound(cmd.sound);
-  } catch(e) {}
+  } catch(e) { console.error('[audio camera] parse error:', e); }
 }
 
 async function startCamera() {
+  // Desbloquear AudioContext y speechSynthesis en el gesto del usuario
+  initAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const unlockU = new SpeechSynthesisUtterance(' ');
+  unlockU.volume = 0; unlockU.rate = 10;
+  synth.speak(unlockU);
+  console.log('[audio camera] desbloqueado en gesto de usuario');
+
   try {
     // Get video stream
     let videoStream;
