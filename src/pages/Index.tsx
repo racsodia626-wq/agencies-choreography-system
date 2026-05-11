@@ -83,7 +83,7 @@ const Index = () => {
           href="https://agencies-choreography-system.vercel.app/app/"
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-8 inline-block border border-primary font-mono text-xs tracking-[0.2em] text-primary px-6 py-3 hover:bg-primary hover:text-primary-foreground transition-colors duration-200"
+          className="mt-8 inline-block bg-primary text-primary-foreground font-mono text-xs tracking-[0.2em] px-10 py-4 rounded-sm hover:shadow-[0_0_20px_hsl(var(--primary)/0.5)] hover:shadow-primary/50 transition-shadow duration-300 animate-pulse-soft"
         >
           {t('ENTRAR AL JUEGO', 'ENTER THE SYSTEM')}
         </motion.a>
