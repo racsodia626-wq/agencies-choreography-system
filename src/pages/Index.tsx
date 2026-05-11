@@ -76,6 +76,17 @@ const Index = () => {
           transition={{ duration: 0.8, delay: 0.9 }}
           className="mt-6 w-24 h-px bg-primary origin-center"
         />
+        <motion.a
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 1.1 }}
+          href="https://agencies-choreography-system.vercel.app/app/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-8 inline-block border border-primary font-mono text-xs tracking-[0.2em] text-primary px-6 py-3 hover:bg-primary hover:text-primary-foreground transition-colors duration-200"
+        >
+          {t('ENTRAR AL JUEGO', 'ENTER THE SYSTEM')}
+        </motion.a>
       </section>
 
       {/* CENTRAL QUESTION */}
