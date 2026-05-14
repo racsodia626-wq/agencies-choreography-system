@@ -253,7 +253,7 @@ const Index = () => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 1.1 }}
-          href="https://agencies-choreography-system.vercel.app/app/"
+          href="https://agencias-sistema.vercel.app/app/"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-block bg-primary text-primary-foreground font-mono text-xs tracking-[0.2em] px-10 py-4 rounded-sm hover:shadow-[0_0_20px_hsl(var(--primary)/0.5)] hover:shadow-primary/50 transition-shadow duration-300 animate-pulse-soft"
