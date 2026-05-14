@@ -76,7 +76,6 @@ const Index = () => {
           transition={{ duration: 0.8, delay: 0.9 }}
           className="mt-6 w-24 h-px bg-primary origin-center"
         />
-        
       </section>
 
       {/* CENTRAL QUESTION */}
