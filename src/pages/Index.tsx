@@ -248,6 +248,21 @@ const Index = () => {
         </div>
       </motion.section>
 
+      {/* CTA */}
+      <div className="py-14 px-6 text-center">
+        <motion.a
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 1.1 }}
+          href="https://agencies-choreography-system.vercel.app/app/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block bg-primary text-primary-foreground font-mono text-xs tracking-[0.2em] px-10 py-4 rounded-sm hover:shadow-[0_0_20px_hsl(var(--primary)/0.5)] hover:shadow-primary/50 transition-shadow duration-300 animate-pulse-soft"
+        >
+          {t('ENTRAR AL JUEGO', 'ENTER THE SYSTEM')}
+        </motion.a>
+      </div>
+
       {/* CONTACT */}
       <footer className="border-t border-primary/30 py-10 px-6">
         <div className="max-w-3xl mx-auto">
